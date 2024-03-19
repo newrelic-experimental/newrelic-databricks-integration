@@ -1,0 +1,23 @@
+# Config example file to configure a data pipeline for the Standalone Environment.
+#
+# "interval", number of seconds between executions. Optional, default value 60.
+# "exporter", string, where to export data. Possible values: "nrinfra", "nrmetrics", "nrevents", "nrlogs", "nrtraces", "otel" and "prom"
+# "buffer", size of channel buffers. Optional, default value 100.
+
+interval: 5
+exporter: nrlogs
+
+# Custom keys here...
+
+# Size of communication buffer between modules
+# buffer: 500
+
+# New Relic API credentials
+# nr_account_id: XXXXX
+# nr_user_key: XXXXX
+# nr_api_key: XXXXX
+# nr_endpoint: US
+
+# Exporter batching and timing
+# batch_size: 50
+# harvest_time: 60

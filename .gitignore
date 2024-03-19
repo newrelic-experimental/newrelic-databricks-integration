@@ -1,0 +1,12 @@
+.DS_store
+cmd/standalone/standalone
+cmd/standalone/*.yaml
+cmd/infra/infra
+cmd/infra/*.yaml
+lambda/receiver/receiver
+lambda/processor/processor
+lambda/exporter/exporter
+lambda/*/*.zip
+lambda/runlambda.sh
+lambda/input.json
+cmd/playground
