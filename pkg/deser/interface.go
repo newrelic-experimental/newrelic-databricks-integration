@@ -1,3 +1,3 @@
 package deser
 
-type DeserFunc = func([]byte, *map[string]any) error
+type DeserFunc = func([]byte) (interface{}, string, error)

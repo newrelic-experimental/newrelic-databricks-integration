@@ -1,25 +1,78 @@
 package integration
 
 import (
-	"newrelic/multienv/examples/integrations/random"
+	log "github.com/sirupsen/logrus"
+	"newrelic/multienv/integration/Utils"
+	"newrelic/multienv/integration/databricks"
+	"newrelic/multienv/integration/spark"
 	"newrelic/multienv/pkg/config"
+	"newrelic/multienv/pkg/connect"
+	"newrelic/multienv/pkg/deser"
 	"newrelic/multienv/pkg/model"
 )
 
-// Integration Receiver Initializer
+var recv_interval = 60
+
+// InitRecv Integration Receiver Initializer
 func InitRecv(pipeConfig *config.PipelineConfig) (config.RecvConfig, error) {
-	// CALL YOUR RECEIVER INITIALIZER HERE
-	return random.InitRecv(pipeConfig)
+
+	recv_interval = int(pipeConfig.Interval)
+	if recv_interval == 0 {
+		log.Warn("Interval not set, using 60 seconds")
+		recv_interval = 60
+	}
+
+	var connectors []connect.Connector
+
+	sparkConnectors, _ := spark.GetSparkConnectors(pipeConfig)
+	databricksConnectors, _ := databricks.GetDatabricksConnectors(pipeConfig)
+
+	connectors = sparkConnectors
+	connectors = append(connectors, databricksConnectors...)
+
+	return config.RecvConfig{
+		Connectors: connectors,
+		Deser:      deser.DeserJson,
+	}, nil
 }
 
-// Integration Processor Initializer
+// InitProc Integration Processor Initializer
 func InitProc(pipeConfig *config.PipelineConfig) (config.ProcConfig, error) {
-	// CALL YOUR PROCESSOR INITIALIZER HERE
-	return random.InitProc(pipeConfig)
+
+	recv_interval = int(pipeConfig.Interval)
+	if recv_interval == 0 {
+		log.Warn("Interval not set, using 60 seconds")
+		recv_interval = 60
+	}
+
+	_, sparkError := spark.InitSparkProc(pipeConfig)
+	if sparkError != nil {
+		return config.ProcConfig{}, sparkError
+	}
+
+	_, databricksError := databricks.InitDatabricksProc(pipeConfig)
+	if databricksError != nil {
+		return config.ProcConfig{}, databricksError
+	}
+	return config.ProcConfig{
+		Model: map[string]any{},
+	}, nil
 }
 
 // Integration Processor
 func Proc(data any) []model.MeltModel {
-	// CALL YOUR PROCESSOR HERE
-	return random.Proc(data)
+
+	modelName := data.(map[string]any)["model"].(string)
+
+	if Utils.StringInSlice(modelName, []string{"SparkJob", "SparkExecutor", "SparkStage"}) {
+		return spark.SparkProc(data)
+
+	} else if Utils.StringInSlice(modelName, []string{"DatabricksQueryList", "DatabricksJobsRunsList"}) {
+		return databricks.DatabricksProc(data)
+
+	} else {
+		log.Println("Unknown response model " + modelName)
+	}
+
+	return nil
 }

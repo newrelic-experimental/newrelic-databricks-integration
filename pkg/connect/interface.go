@@ -16,4 +16,5 @@ type Connector interface {
 	SetConfig(any)
 	Request() ([]byte, ConnecError)
 	ConnectorID() string
+	ConnectorModel() string
 }
