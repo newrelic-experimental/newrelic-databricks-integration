@@ -36,6 +36,7 @@ type HttpConfig struct {
 	Headers map[string]string
 	Builder BuilderFunc
 	Timeout time.Duration
+	Model   string
 }
 
 type HttpConnector struct {
@@ -81,6 +82,14 @@ func (c *HttpConnector) Request() ([]byte, ConnecError) {
 			return nil, MakeConnectErr(errors.New("Unsupported HTTP method"), 0)
 		}
 	}
+}
+
+func (c *HttpConnector) SetConnectorModelName(model string) {
+	c.Config.Model = model
+}
+
+func (c *HttpConnector) ConnectorModel() string {
+	return c.Config.Model
 }
 
 func (c *HttpConnector) ConnectorID() string {

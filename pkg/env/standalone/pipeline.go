@@ -38,19 +38,33 @@ func InitPipeline(pipeConf config.PipelineConfig, recvConfig config.RecvConfig, 
 	}
 
 	recvToProcCh := make(chan map[string]any, bufferSize)
-	procToExpCh := make(chan model.MeltModel, bufferSize)
+	metricsProcToExpCh := make(chan model.MeltModel, bufferSize)
+	eventsProcToExpCh := make(chan model.MeltModel, bufferSize)
 
-	InitExporter(ExpWorkerConfig{
-		InChannel:   procToExpCh,
+	metricsExporter := MakeExporterWorker(ExpWorkerConfig{
+		InChannel:   metricsProcToExpCh,
 		HarvestTime: harvestTime,
 		BatchSize:   batchSize,
-		Exporter:    export.SelectExporter(pipeConf.Exporter),
+		Exporter:    export.SelectExporter(config.NrMetrics),
 	}, pipeConf)
+
+	metricsExporter.InitExporter()
+
+	eventsExporter := MakeExporterWorker(ExpWorkerConfig{
+		InChannel:   eventsProcToExpCh,
+		HarvestTime: harvestTime,
+		BatchSize:   batchSize,
+		Exporter:    export.SelectExporter(config.NrEvents),
+	}, pipeConf)
+
+	eventsExporter.InitExporter()
+
 	InitProcessor(ProcWorkerConfig{
-		Processor:  proc,
-		Model:      procConfig.Model,
-		InChannel:  recvToProcCh,
-		OutChannel: procToExpCh,
+		Processor:         proc,
+		Model:             procConfig.Model,
+		InChannel:         recvToProcCh,
+		MetricsOutChannel: metricsProcToExpCh,
+		EventsOutChannel:  eventsProcToExpCh,
 	})
 	InitReceiver(RecvWorkerConfig{
 		IntervalSec:  pipeConf.Interval,
