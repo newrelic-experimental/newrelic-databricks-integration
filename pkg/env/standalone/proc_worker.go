@@ -10,10 +10,11 @@ import (
 type ProcessorFunc = func(any) []model.MeltModel
 
 type ProcWorkerConfig struct {
-	Processor  ProcessorFunc
-	Model      any
-	InChannel  <-chan map[string]any
-	OutChannel chan<- model.MeltModel
+	Processor         ProcessorFunc
+	Model             any
+	InChannel         <-chan map[string]any
+	MetricsOutChannel chan<- model.MeltModel
+	EventsOutChannel  chan<- model.MeltModel
 }
 
 var procWorkerConfigHoldr SharedConfig[ProcWorkerConfig]
@@ -31,19 +32,24 @@ func InitProcessor(config ProcWorkerConfig) {
 func processorWorker() {
 	for {
 		config := procWorkerConfigHoldr.Config()
-		model := config.Model
+		configModel := config.Model
 		data := <-config.InChannel
-		err := mapstructure.Decode(data, &model)
+		err := mapstructure.Decode(data, &configModel)
 		if err == nil {
-			for _, val := range config.Processor(model) {
-				config.OutChannel <- val
+			for _, val := range config.Processor(configModel) {
+
+				switch val.Type {
+				case model.Metric:
+					config.MetricsOutChannel <- val
+				case model.Event:
+					config.EventsOutChannel <- val
+
+				default:
+					log.Warn("Model type unknown")
+				}
 			}
 		} else {
 			log.Error("Error decoding data = ", err)
-			// Sending to processor anyway, just in case it knows a better way to decode
-			for _, val := range config.Processor(data) {
-				config.OutChannel <- val
-			}
 		}
 	}
 }

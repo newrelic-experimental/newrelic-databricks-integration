@@ -50,10 +50,24 @@ func receiverWorker() {
 
 				log.Println("Data received: ", string(data))
 
-				var deserBuffer map[string]any
-				desErr := config.Deserializer(data, &deserBuffer)
+				response, jsonType, desErr := config.Deserializer(data)
 				if desErr == nil {
-					config.OutChannel <- deserBuffer
+					switch jsonType {
+					case "array":
+						var rdata = map[string]any{}
+						for _, responseObject := range response.([]map[string]any) {
+							rdata["model"] = connector.ConnectorModel()
+							rdata["response"] = responseObject
+							config.OutChannel <- rdata
+						}
+					case "object":
+						var rdata = map[string]any{}
+						rdata["model"] = connector.ConnectorModel()
+						rdata["response"] = response.(map[string]any)
+						config.OutChannel <- rdata
+					default:
+						log.Warn("Response data type couldn't be identified")
+					}
 				}
 			}(connector)
 		}

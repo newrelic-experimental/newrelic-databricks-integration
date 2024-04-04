@@ -16,26 +16,35 @@ type ExpWorkerConfig struct {
 	Exporter    export.ExportFunc
 }
 
-var expWorkerConfig SharedConfig[ExpWorkerConfig]
-var pipelineConfig SharedConfig[config.PipelineConfig]
+type ExporterWorker struct {
+	config     ExpWorkerConfig
+	pipeConfig config.PipelineConfig
+	isRunning  bool
+}
 
-func InitExporter(config ExpWorkerConfig, pipeConf config.PipelineConfig) {
-	pipelineConfig.SetConfig(pipeConf)
-	expWorkerConfig.SetConfig(config)
-	if !expWorkerConfig.SetIsRunning() {
+//var expWorkerConfig SharedConfig[ExpWorkerConfig]
+//var pipelineConfig SharedConfig[config.PipelineConfig]
+
+func MakeExporterWorker(config ExpWorkerConfig, pipeConf config.PipelineConfig) ExporterWorker {
+	return ExporterWorker{config: config, pipeConfig: pipeConf, isRunning: false}
+}
+
+func (exporterWorker *ExporterWorker) InitExporter() {
+	if !exporterWorker.isRunning {
 		log.Println("Starting exporter worker...")
-		go exporterWorker()
+		exporterWorker.isRunning = true
+		go exporterWorker.exporterWorker()
 	} else {
 		log.Println("Exporter worker already running, config updated.")
 	}
 }
 
-func exporterWorker() {
+func (exporterWorker *ExporterWorker) exporterWorker() {
 	buffer := MakeReservoirBuffer[model.MeltModel](500)
 	pre := time.Now().Unix()
 
 	for {
-		config := expWorkerConfig.Config()
+		config := exporterWorker.config
 		harvestTime := time.Duration(config.HarvestTime) * time.Second
 
 		data := <-config.InChannel
@@ -64,7 +73,7 @@ func exporterWorker() {
 
 			log.Println("Harvest cycle, buffer size = ", bufSize)
 
-			err := config.Exporter(pipelineConfig.Config(), buf[0:bufSize])
+			err := config.Exporter(exporterWorker.pipeConfig, buf[0:bufSize])
 
 			if err != nil {
 				log.Error("Exporter failed = ", err)
