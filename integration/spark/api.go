@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	log "github.com/sirupsen/logrus"
-	"newrelic/multienv/integration/Utils"
+	"newrelic/multienv/integration/utils"
 	"newrelic/multienv/pkg/config"
 	"newrelic/multienv/pkg/connect"
 	"newrelic/multienv/pkg/model"
@@ -88,9 +88,9 @@ func SparkProc(data any) []model.MeltModel {
 		e := reflect.ValueOf(&sparkStagesModel).Elem()
 		tags := make(map[string]interface{})
 		stagesTags := make(map[string]interface{})
-		Utils.SetTags("spark.stage.", e, tags, stagesTags)
+		utils.SetTags("spark.stage.", e, tags, stagesTags)
 
-		return Utils.CreateMetricModels("spark.stage.", e, stagesTags)
+		return utils.CreateMetricModels("spark.stage.", e, stagesTags)
 
 	} else if responseModel == "SparkJob" {
 
@@ -104,9 +104,9 @@ func SparkProc(data any) []model.MeltModel {
 		e := reflect.ValueOf(&sparkStagesModel).Elem()
 		tags := make(map[string]interface{})
 		stagesTags := make(map[string]interface{})
-		Utils.SetTags("spark.job.", e, tags, stagesTags)
+		utils.SetTags("spark.job.", e, tags, stagesTags)
 
-		return Utils.CreateMetricModels("spark.job.", e, stagesTags)
+		return utils.CreateMetricModels("spark.job.", e, stagesTags)
 
 	} else if responseModel == "SparkExecutor" {
 
@@ -120,9 +120,9 @@ func SparkProc(data any) []model.MeltModel {
 		e := reflect.ValueOf(&sparkStagesModel).Elem()
 		tags := make(map[string]interface{})
 		stagesTags := make(map[string]interface{})
-		Utils.SetTags("spark.executor.", e, tags, stagesTags)
+		utils.SetTags("spark.executor.", e, tags, stagesTags)
 
-		return Utils.CreateMetricModels("spark.executor.", e, stagesTags)
+		return utils.CreateMetricModels("spark.executor.", e, stagesTags)
 
 	} else {
 		log.Println("Unknown response model in Spark integration")

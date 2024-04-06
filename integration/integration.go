@@ -2,9 +2,9 @@ package integration
 
 import (
 	log "github.com/sirupsen/logrus"
-	"newrelic/multienv/integration/Utils"
 	"newrelic/multienv/integration/databricks"
 	"newrelic/multienv/integration/spark"
+	"newrelic/multienv/integration/utils"
 	"newrelic/multienv/pkg/config"
 	"newrelic/multienv/pkg/connect"
 	"newrelic/multienv/pkg/deser"
@@ -64,10 +64,16 @@ func Proc(data any) []model.MeltModel {
 
 	modelName := data.(map[string]any)["model"].(string)
 
-	if Utils.StringInSlice(modelName, []string{"SparkJob", "SparkExecutor", "SparkStage"}) {
+	if utils.StringInSlice(modelName, []string{"SparkJob", "SparkExecutor", "SparkStage"}) {
 		return spark.SparkProc(data)
 
-	} else if Utils.StringInSlice(modelName, []string{"DatabricksQueryList", "DatabricksJobsRunsList"}) {
+	} else if utils.StringInSlice(modelName, []string{
+		"AWSDatabricksQueryList",
+		"AWSDatabricksJobsRunsList",
+		"GCPDatabricksQueryList",
+		"GCPDatabricksJobsRunsList",
+		"AzureDatabricksQueryList",
+		"AzureDatabricksJobsRunsList"}) {
 		return databricks.DatabricksProc(data)
 
 	} else {

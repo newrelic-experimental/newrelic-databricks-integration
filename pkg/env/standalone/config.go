@@ -59,25 +59,12 @@ func LoadConfig(filePath string) (config.PipelineConfig, error) {
 		interval = 60
 	}
 
-	exporter, ok := pipeConfigMap["exporter"]
-	if !ok {
-		return config.PipelineConfig{}, errors.New("Exporter must be specified")
-	}
-
-	if _, ok := exporter.(string); !ok {
-		return config.PipelineConfig{}, errors.New("Exporter must be a string")
-	}
-
-	if !config.ExporterType(exporter.(string)).Check() {
-		return config.PipelineConfig{}, errors.New("Invalid 'exporter' value in config.")
-	}
-
 	delete(pipeConfigMap, "interval")
 	delete(pipeConfigMap, "exporter")
 
 	var pipeConfig = config.PipelineConfig{
 		Interval: uint(interval.(int)),
-		Exporter: config.ExporterType(exporter.(string)),
+		Exporter: config.NrMetrics,
 		Custom:   pipeConfigMap,
 	}
 

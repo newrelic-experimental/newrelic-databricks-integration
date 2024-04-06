@@ -2,43 +2,6 @@ package databricks
 
 var recv_interval = 0
 
-type AWSJobsList struct {
-	Jobs []struct {
-		JobID           int64  `json:"job_id"`
-		CreatorUserName string `json:"creator_user_name"`
-		Settings        struct {
-			Name        string `json:"name"`
-			Description string `json:"description"`
-			Queue       struct {
-				Enabled bool `json:"enabled"`
-			} `json:"queue"`
-			Tags   map[string]string `json:"tags"`
-			Tasks  []TaskDetails     `json:"tasks"`
-			Format string            `json:"format"`
-		} `json:"settings"`
-		CreatedTime int64 `json:"created_time"`
-	} `json:"jobs"`
-	HasMore       bool   `json:"has_more"`
-	NextPageToken string `json:"next_page_token"`
-	PrevPageToken string `json:"prev_page_token"`
-}
-type TaskDetails struct {
-	MaxRetries             int                 `json:"max_retries"`
-	TaskKey                string              `json:"task_key"`
-	Description            string              `json:"description"`
-	MinRetryIntervalMillis int                 `json:"min_retry_interval_millis"`
-	DependsOn              []map[string]string `json:"depends_on"`
-	TimeoutSeconds         int                 `json:"timeout_seconds"`
-	RetryOnTimeout         bool                `json:"retry_on_timeout"`
-	NotebookTask           NotebookTask        `json:"notebook_task"`
-	ExistingClusterId      string              `json:"existing_cluster_id"`
-}
-
-type NotebookTask struct {
-	NotebookPath   string            `json:"notebook_path"`
-	BaseParameters map[string]string `json:"base_parameters"`
-}
-
 type AWSJobRuns struct {
 	Runs []struct {
 		JobId                int    `json:"job_id"`
@@ -481,7 +444,7 @@ type AzureQueriesList struct {
 	} `json:"res"`
 }
 
-type GCPJobsList struct {
+type GCPJobRuns struct {
 	Runs []struct {
 		JobId                int    `json:"job_id"`
 		RunId                int    `json:"run_id"`
@@ -733,7 +696,7 @@ type GCPJobsList struct {
 	PrevPageToken string `json:"prev_page_token"`
 }
 
-type AzureJobsList struct {
+type AzureJobRuns struct {
 	Runs []struct {
 		JobId                int    `json:"job_id"`
 		RunId                int    `json:"run_id"`

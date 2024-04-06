@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	log "github.com/sirupsen/logrus"
-	"newrelic/multienv/integration/Utils"
+	"newrelic/multienv/integration/utils"
 	"newrelic/multienv/pkg/config"
 	"newrelic/multienv/pkg/connect"
 	"newrelic/multienv/pkg/model"
@@ -16,6 +16,7 @@ func GetDatabricksConnectors(pipeConfig *config.PipelineConfig) ([]connect.Conne
 
 	licenseKey := ""
 	databricksEndpoint := ""
+	databricksCloudProvider := ""
 
 	if databricksLicenseKey, ok := pipeConfig.GetString("db_access_token"); ok {
 		licenseKey = databricksLicenseKey
@@ -29,6 +30,12 @@ func GetDatabricksConnectors(pipeConfig *config.PipelineConfig) ([]connect.Conne
 		return nil, errors.New("config key 'databricks_endpoint' doesn't exist")
 	}
 
+	if databricksCloud, ok := pipeConfig.GetString("db_cloud"); ok {
+		databricksCloudProvider = databricksCloud
+	} else {
+		return nil, errors.New("config key 'db_cloud' doesn't exist")
+	}
+
 	var headers = make(map[string]string)
 	headers["Authorization"] = "Bearer " + licenseKey
 	headers["Content-Type"] = "application/json"
@@ -37,10 +44,23 @@ func GetDatabricksConnectors(pipeConfig *config.PipelineConfig) ([]connect.Conne
 	var connectors []connect.Connector
 
 	queryHistoryConnector := connect.MakeHttpGetConnector(databricksEndpoint+"/api/2.0/sql/history/queries?include_metrics=true", headers)
-	queryHistoryConnector.SetConnectorModelName("DatabricksQueryList")
+
+	if databricksCloudProvider == "GCP" {
+		queryHistoryConnector.SetConnectorModelName("GCPDatabricksQueryList")
+	} else if databricksCloudProvider == "AWS" {
+		queryHistoryConnector.SetConnectorModelName("AWSDatabricksQueryList")
+	} else if databricksCloudProvider == "AZURE" {
+		queryHistoryConnector.SetConnectorModelName("AzureDatabricksQueryList")
+	}
 
 	jobRunsListConnector := connect.MakeHttpGetConnector(databricksEndpoint+"/api/2.1/jobs/runs/list", headers)
-	jobRunsListConnector.SetConnectorModelName("DatabricksJobsRunsList")
+	if databricksCloudProvider == "GCP" {
+		jobRunsListConnector.SetConnectorModelName("GCPDatabricksJobsRunsList")
+	} else if databricksCloudProvider == "AWS" {
+		jobRunsListConnector.SetConnectorModelName("AWSDatabricksJobsRunsList")
+	} else if databricksCloudProvider == "AZURE" {
+		jobRunsListConnector.SetConnectorModelName("AzureDatabricksJobsRunsList")
+	}
 
 	connectors = append(connectors, &jobRunsListConnector, &queryHistoryConnector)
 
@@ -58,14 +78,17 @@ func InitDatabricksProc(pipeConfig *config.PipelineConfig) (config.ProcConfig, e
 	return config.ProcConfig{}, nil
 }
 
-// Proc Generate all kinds of data.
+// DatabricksProc Proc Generate all kinds of data.
 func DatabricksProc(data any) []model.MeltModel {
 
 	responseModel := data.(map[string]any)["model"]
 	responseData := data.(map[string]any)["response"]
 
 	out := make([]model.MeltModel, 0)
-	if responseModel == "DatabricksQueryList" {
+
+	switch responseModel {
+
+	case "AWSDatabricksQueryList":
 
 		var databricksJobsListModel = AWSQueriesList{}
 		modelJson, _ := json.Marshal(responseData)
@@ -75,32 +98,14 @@ func DatabricksProc(data any) []model.MeltModel {
 		}
 
 		for i := 0; i < len(databricksJobsListModel.Res); i++ {
-
-			jsonBytes, err := json.Marshal(databricksJobsListModel.Res[i])
-			if err != nil {
-				log.Println(err.Error())
-			}
-			var jsonString map[string]interface{}
-
-			err = json.Unmarshal(jsonBytes, &jsonString)
-			if err != nil {
-				log.Println(err.Error())
-			}
-			result := make(map[string]interface{})
-			result = Utils.Flatten(jsonString, "", result)
-
 			e := reflect.ValueOf(&databricksJobsListModel.Res[i]).Elem()
 			tags := make(map[string]interface{})
-			stagesTags := make(map[string]interface{})
-			Utils.SetTags("databricks.query.", e, tags, stagesTags)
-
-			metricModels := Utils.CreateMetricModels("databricks.query.", e, stagesTags)
-
+			tags["QueryId"] = databricksJobsListModel.Res[i].QueryId
+			metricModels := utils.CreateMetricModels("AWSDatabricksQuery", e, tags)
 			out = append(out, metricModels...)
 		}
 
-	} else if responseModel == "DatabricksJobsRunsList" {
-
+	case "AWSDatabricksJobsRunsList":
 		var databricksJobsListModel = AWSJobRuns{}
 		modelJson, _ := json.Marshal(responseData)
 		err := json.Unmarshal(modelJson, &databricksJobsListModel)
@@ -110,25 +115,89 @@ func DatabricksProc(data any) []model.MeltModel {
 
 		for i := 0; i < len(databricksJobsListModel.Runs); i++ {
 
-			jsonBytes, err := json.Marshal(databricksJobsListModel.Runs[i])
-			if err != nil {
-				log.Println(err.Error())
-			}
-			var jsonString map[string]interface{}
-
-			err = json.Unmarshal(jsonBytes, &jsonString)
-			if err != nil {
-				log.Println(err.Error())
-			}
-
-			metricModel := model.MakeEvent("DatabricksJobsRuns", jsonString, time.Now())
-
+			metricModel := createEventModels("AWS", databricksJobsListModel.Runs[i])
 			out = append(out, metricModel)
 		}
 
-	} else {
+	case "GCPDatabricksQueryList":
+
+		var databricksJobsListModel = GCPQueriesList{}
+		modelJson, _ := json.Marshal(responseData)
+		err := json.Unmarshal(modelJson, &databricksJobsListModel)
+		if err != nil {
+			return nil
+		}
+
+		for i := 0; i < len(databricksJobsListModel.Res); i++ {
+			e := reflect.ValueOf(&databricksJobsListModel.Res[i]).Elem()
+			tags := make(map[string]interface{})
+			tags["QueryId"] = databricksJobsListModel.Res[i].QueryId
+			metricModels := utils.CreateMetricModels("GCPDatabricksQuery", e, tags)
+			out = append(out, metricModels...)
+		}
+
+	case "GCPDatabricksJobsRunsList":
+		var databricksJobsListModel = GCPJobRuns{}
+		modelJson, _ := json.Marshal(responseData)
+		err := json.Unmarshal(modelJson, &databricksJobsListModel)
+		if err != nil {
+			return nil
+		}
+
+		for i := 0; i < len(databricksJobsListModel.Runs); i++ {
+
+			metricModel := createEventModels("GCP", databricksJobsListModel.Runs[i])
+			out = append(out, metricModel)
+		}
+
+	case "AzureDatabricksQueryList":
+
+		var databricksJobsListModel = AzureQueriesList{}
+		modelJson, _ := json.Marshal(responseData)
+		err := json.Unmarshal(modelJson, &databricksJobsListModel)
+		if err != nil {
+			return nil
+		}
+
+		for i := 0; i < len(databricksJobsListModel.Res); i++ {
+			e := reflect.ValueOf(&databricksJobsListModel.Res[i]).Elem()
+			tags := make(map[string]interface{})
+			tags["QueryId"] = databricksJobsListModel.Res[i].QueryId
+			metricModels := utils.CreateMetricModels("AzureDatabricksQuery", e, tags)
+			out = append(out, metricModels...)
+		}
+
+	case "AzureDatabricksJobsRunsList":
+		var databricksJobsListModel = AzureJobRuns{}
+		modelJson, _ := json.Marshal(responseData)
+		err := json.Unmarshal(modelJson, &databricksJobsListModel)
+		if err != nil {
+			return nil
+		}
+
+		for i := 0; i < len(databricksJobsListModel.Runs); i++ {
+
+			metricModel := createEventModels("Azure", databricksJobsListModel.Runs[i])
+			out = append(out, metricModel)
+		}
+	default:
 		log.Println("Unknown response model in Databricks integration")
 	}
 
 	return out
+}
+
+func createEventModels(cloud string, data any) model.MeltModel {
+	jsonBytes, err := json.Marshal(data)
+	if err != nil {
+		log.Println(err.Error())
+	}
+	var jsonString map[string]interface{}
+
+	err = json.Unmarshal(jsonBytes, &jsonString)
+	if err != nil {
+		log.Println(err.Error())
+	}
+
+	return model.MakeEvent(cloud+"DatabricksJobsRuns", jsonString, time.Now())
 }
