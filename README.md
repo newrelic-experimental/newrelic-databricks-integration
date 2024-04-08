@@ -6,7 +6,13 @@ Welcome to the New Relic Integration for Databricks! This repository provides sc
 
 This integration enables you to utilize New Relic directly within your Databricks environment. With options to monitor via standalone integration, OpenTelemetry (OTel), or Prometheus, you flexibly choose what best fits your operational needs.
 
--  **New Relic Databricks Integration:** A direct connection between Databricks and New Relic, enabling seamless data transfer and analysis capabilities. This integration supports `spark metrics`, `databricks queries metrics`, `databricks job runs events`. This integration along with New Relic APM agent can pull `logs`, and cluster performance related data as well. Depending on the cloud you are using for Databricks, you will be able to install New Relic Infra Agent.
+-  **New Relic Databricks Integration:** A direct connection between Databricks and New Relic, enabling seamless data transfer and analysis capabilities. This integration supports `spark metrics`, `databricks queries metrics`, `databricks job runs events`. This integration along with New Relic APM agent can pull `logs`, and cluster performance related data as well.
+
+
+-  **OpenTelemetry (OTel) Integration:** An open-source observability framework, enabling you to generate and manage telemetry data, supports `spark metrics` from Databricks. Please follow the [instructions here](link-to-the-instruction-page) for a detailed guide on how to add initialization scripts for OTEL to your Databricks cluster.
+
+
+-  **Prometheus Integration:** A powerful open-source systems monitoring and alerting toolkit which can process metrics from Databricks. Support `spark metrics` from Databricks. Please follow the [instructions here](link-to-the-instruction-page) for a detailed guide on how to add initialization scripts to your Databricks cluster.
 
 Pick the option that suits your use-case and follow the associated guide to get started.
 
@@ -57,13 +63,13 @@ To run the pipeline on system start, check your specific system init documentati
 
 Databricks Initialization Scripts are shell scripts that run when a cluster is starting. They are useful for setting up custom configurations or third-party integrations such as setting up monitoring agents. Here is how you add an init script to Databricks.
 
-Based on the cloud Databricks is hosted on, you will be able to run the APM agent and Infra agent accordingly.
+Based on the cloud Databricks is hosted on, you will be able to run the APM agent.
 
 ### Install New Relic APM on Databricks
 
 
 
-1. **Add script to Databricks:** Create new file in workspace same as /init-scripts/nr-agent-installation.sh.
+1. **Add script to Databricks:** Create new file in workspace as nr-agent-installation.sh and add the below script to it.
    ```bash
    #!/bin/bash
 
@@ -85,21 +91,27 @@ Based on the cloud Databricks is hosted on, you will be able to run the APM agen
    <<: *default_settings
    app_name: Databricks" > ${NR_CONFIG_FILE}
    ```
-2. **Add Spark configurations to attach the java agent:**
-    ```bash
-   # Example jar path "/databricks/jars/newrelic-agent-8.10.0.jar"
-   
-    echo "spark.driver.extraJavaOptions -javaagent:${NR_JAR_PATH}"
-    echo "spark.executor.extraJavaOptions -javaagent:${NR_JAR_PATH}"
-    ```
-3. **Add the script to your Databricks cluster:** To add the initialization script to your cluster in Databricks, follow these steps:
+
+2. **Add the script to your Databricks cluster:** To add the initialization script to your cluster in Databricks, follow these steps:
 
     - Navigate to your Databricks workspace and go to the `Clusters` page.
     - Choose the cluster you want to add the script to and click `Edit`.
     - In the `Advanced Options` section, find the `Init Scripts` field.
     - Click on `Add`, then in the Script Path input, select workspace or cloud storage path where your script is stored.
     - Click `Confirm` and then `Update`.
+
+
+3. **Add Spark configurations to attach the java agent:**
+
+   * Navigate to your cluster `Advanced Options`, then `Spark`.
+   - Add or update Spark configurations as key-value pairs. Here's an example:
+
+    ```bash
+    # Example jar path "/databricks/jars/newrelic-agent-8.10.0.jar"
    
+    echo "spark.driver.extraJavaOptions -javaagent:${NR_JAR_PATH}"
+    echo "spark.executor.extraJavaOptions -javaagent:${NR_JAR_PATH}"
+    ```
 
 4. **Verify the script was executed:** After your cluster starts/restarts, you should verify that the script was executed successfully. You can do this by checking the cluster logs via the `Logs` tab on your clusters page.
 
