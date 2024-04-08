@@ -1,10 +1,13 @@
+<a href="https://opensource.newrelic.com/oss-category/#new-relic-experimental"><picture><source media="(prefers-color-scheme: dark)" srcset="https://github.com/newrelic/opensource-website/raw/main/src/images/categories/dark/Experimental.png"><source media="(prefers-color-scheme: light)" srcset="https://github.com/newrelic/opensource-website/raw/main/src/images/categories/Experimental.png"><img alt="New Relic Open Source experimental project banner." src="https://github.com/newrelic/opensource-website/raw/main/src/images/categories/Experimental.png"></picture></a>
+
+
 # New Relic Databricks Integration
 
 Welcome to the New Relic Integration for Databricks! This repository provides scripts and instructions for integrating New Relic with Databricks through New Relic Datbaricks Integration or through other Open Source tools like OpenTelemetry and Prometheus.
 
 ## Overview
 
-This integration enables you to utilize New Relic directly within your Databricks environment. With options to monitor via standalone integration, OpenTelemetry (OTel), or Prometheus, you flexibly choose what best fits your operational needs.
+This repository provides you various ways to utilize New Relic directly from your Databricks environment. With options to monitor via standalone integration, OpenTelemetry (OTel), or Prometheus, you flexibly choose what best fits your operational needs.
 
 -  **New Relic Databricks Integration:** A direct connection between Databricks and New Relic, enabling seamless data transfer and analysis capabilities. This integration supports `spark metrics`, `databricks queries metrics`, `databricks job runs events`. This integration along with New Relic APM agent can pull `logs`, and cluster performance related data as well.
 
@@ -94,11 +97,11 @@ Based on the cloud Databricks is hosted on, you will be able to run the APM agen
 
 2. **Add the script to your Databricks cluster:** To add the initialization script to your cluster in Databricks, follow these steps:
 
-    - Navigate to your Databricks workspace and go to the `Clusters` page.
-    - Choose the cluster you want to add the script to and click `Edit`.
-    - In the `Advanced Options` section, find the `Init Scripts` field.
-    - Click on `Add`, then in the Script Path input, select workspace or cloud storage path where your script is stored.
-    - Click `Confirm` and then `Update`.
+   - Navigate to your Databricks workspace and go to the `Clusters` page.
+   - Choose the cluster you want to add the script to and click `Edit`.
+   - In the `Advanced Options` section, find the `Init Scripts` field.
+   - Click on `Add`, then in the Script Path input, select workspace or cloud storage path where your script is stored.
+   - Click `Confirm` and then `Update`.
 
 
 3. **Add Spark configurations to attach the java agent:**
@@ -117,3 +120,29 @@ Based on the cloud Databricks is hosted on, you will be able to run the APM agen
 
 ***Note***: Any changes to the script settings will apply only to new clusters or when existing clusters are restarted.
 
+## Support
+
+New Relic hosts and moderates an online forum where customers can interact with New Relic employees as well as other customers to get help and share best practices. If you're running into a problem, please raise an issue on this repository and we will try to help you ASAP. Please bear in mind this is an open source project and hence it isn't directly supported by New Relic.
+
+## Contributing
+We encourage your contributions to improve <strong>newrelic-databricks-integration</strong> . Keep in mind when you submit your pull request, you'll need to sign the CLA via the click-through using CLA-Assistant. You only have to sign the CLA one time per project.
+If you have any questions, or to execute our corporate CLA, required if your contribution is on behalf of a company,  please drop us an email at opensource@newrelic.com.
+
+**A note about vulnerabilities**
+
+As noted in our [security policy](../../security/policy), New Relic is committed to the privacy and security of our customers and their data. We believe that providing coordinated disclosure by security researchers and engaging with the security community are important means to achieve our security goals.
+
+If you believe you have found a security vulnerability in this project or any of New Relic's products or websites, we welcome and greatly appreciate you reporting it to New Relic through [HackerOne](https://hackerone.com/newrelic).
+
+## License
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
