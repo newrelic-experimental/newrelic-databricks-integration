@@ -39,20 +39,27 @@ func GetSparkConnectors(pipeConfig *config.PipelineConfig) ([]connect.Connector,
 	headers["Accept"] = "application/json"
 
 	apps, _ := GetSparkApplications(sparkEndpoint, headers)
-	fetchLogs()
 
 	var connectors []connect.Connector
 
 	for i := 0; i < len(apps); i++ {
 
+		var appData map[string]interface{}
+		appData = make(map[string]interface{})
+		appData["appId"] = apps[i].ID
+		appData["appName"] = apps[i].Name
+
 		jobsConnector := connect.MakeHttpGetConnector(sparkEndpoint+"/api/v1/applications/"+apps[i].ID+"/jobs", headers)
 		jobsConnector.SetConnectorModelName("SparkJob")
+		jobsConnector.SetCustomData(appData)
 
 		executorsConnector := connect.MakeHttpGetConnector(sparkEndpoint+"/api/v1/applications/"+apps[i].ID+"/executors", headers)
 		executorsConnector.SetConnectorModelName("SparkExecutor")
+		executorsConnector.SetCustomData(appData)
 
 		stagesConnector := connect.MakeHttpGetConnector(sparkEndpoint+"/api/v1/applications/"+apps[i].ID+"/stages", headers)
 		stagesConnector.SetConnectorModelName("SparkStage")
+		stagesConnector.SetCustomData(appData)
 
 		connectors = append(connectors, &jobsConnector, &executorsConnector, &stagesConnector)
 	}
@@ -75,10 +82,12 @@ func SparkProc(data any) []model.MeltModel {
 
 	responseModel := data.(map[string]any)["model"]
 	responseData := data.(map[string]any)["response"]
+	customData := data.(map[string]any)["customData"].(map[string]interface{})
 
-	if responseModel == "SparkStage" {
-
+	switch responseModel {
+	case "SparkStage":
 		var sparkStagesModel = SparkStage{}
+		tagPrefix := "spark.stage."
 		modelJson, _ := json.Marshal(responseData)
 		err := json.Unmarshal(modelJson, &sparkStagesModel)
 		if err != nil {
@@ -87,44 +96,49 @@ func SparkProc(data any) []model.MeltModel {
 
 		e := reflect.ValueOf(&sparkStagesModel).Elem()
 		tags := make(map[string]interface{})
+		tags["appId"] = customData["appId"]
+		tags["appName"] = customData["appName"]
 		stagesTags := make(map[string]interface{})
-		utils.SetTags("spark.stage.", e, tags, stagesTags)
+		utils.SetTags(tagPrefix, e, tags, stagesTags)
+		return utils.CreateMetricModels(tagPrefix, e, stagesTags)
 
-		return utils.CreateMetricModels("spark.stage.", e, stagesTags)
+	case "SparkJob":
 
-	} else if responseModel == "SparkJob" {
-
-		var sparkStagesModel = SparkJob{}
+		var sparkJobsModel = SparkJob{}
+		tagPrefix := "spark.job."
 		modelJson, _ := json.Marshal(responseData)
-		err := json.Unmarshal(modelJson, &sparkStagesModel)
+		err := json.Unmarshal(modelJson, &sparkJobsModel)
 		if err != nil {
 			return nil
 		}
 
-		e := reflect.ValueOf(&sparkStagesModel).Elem()
+		e := reflect.ValueOf(&sparkJobsModel).Elem()
 		tags := make(map[string]interface{})
-		stagesTags := make(map[string]interface{})
-		utils.SetTags("spark.job.", e, tags, stagesTags)
+		tags["appId"] = customData["appId"]
+		tags["appName"] = customData["appName"]
+		sparkJobTags := make(map[string]interface{})
+		utils.SetTags(tagPrefix, e, tags, sparkJobTags)
+		return utils.CreateMetricModels(tagPrefix, e, sparkJobTags)
 
-		return utils.CreateMetricModels("spark.job.", e, stagesTags)
+	case "SparkExecutor":
 
-	} else if responseModel == "SparkExecutor" {
-
-		var sparkStagesModel = SparkExecutor{}
+		var sparkExecutorsModel = SparkExecutor{}
+		tagPrefix := "spark.executor."
 		modelJson, _ := json.Marshal(responseData)
-		err := json.Unmarshal(modelJson, &sparkStagesModel)
+		err := json.Unmarshal(modelJson, &sparkExecutorsModel)
 		if err != nil {
 			return nil
 		}
 
-		e := reflect.ValueOf(&sparkStagesModel).Elem()
+		e := reflect.ValueOf(&sparkExecutorsModel).Elem()
 		tags := make(map[string]interface{})
-		stagesTags := make(map[string]interface{})
-		utils.SetTags("spark.executor.", e, tags, stagesTags)
+		tags["appId"] = customData["appId"]
+		tags["appName"] = customData["appName"]
+		sparkExecutorTags := make(map[string]interface{})
+		utils.SetTags(tagPrefix, e, tags, sparkExecutorTags)
+		return utils.CreateMetricModels(tagPrefix, e, sparkExecutorTags)
 
-		return utils.CreateMetricModels("spark.executor.", e, stagesTags)
-
-	} else {
+	default:
 		log.Println("Unknown response model in Spark integration")
 	}
 	return nil

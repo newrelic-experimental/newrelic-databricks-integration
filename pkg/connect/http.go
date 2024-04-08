@@ -37,6 +37,7 @@ type HttpConfig struct {
 	Builder BuilderFunc
 	Timeout time.Duration
 	Model   string
+	Data    map[string]interface{}
 }
 
 type HttpConnector struct {
@@ -90,6 +91,14 @@ func (c *HttpConnector) SetConnectorModelName(model string) {
 
 func (c *HttpConnector) ConnectorModel() string {
 	return c.Config.Model
+}
+
+func (c *HttpConnector) SetCustomData(data map[string]interface{}) {
+	c.Config.Data = data
+}
+
+func (c *HttpConnector) ConnectorCustomData() map[string]interface{} {
+	return c.Config.Data
 }
 
 func (c *HttpConnector) ConnectorID() string {

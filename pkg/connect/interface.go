@@ -17,4 +17,5 @@ type Connector interface {
 	Request() ([]byte, ConnecError)
 	ConnectorID() string
 	ConnectorModel() string
+	ConnectorCustomData() map[string]interface{}
 }

@@ -48,7 +48,7 @@ func receiverWorker() {
 					return
 				}
 
-				log.Println("Data received: ", string(data))
+				//log.Println("Data received: ", string(data))
 
 				response, jsonType, desErr := config.Deserializer(data)
 				if desErr == nil {
@@ -57,12 +57,14 @@ func receiverWorker() {
 						var rdata = map[string]any{}
 						for _, responseObject := range response.([]map[string]any) {
 							rdata["model"] = connector.ConnectorModel()
+							rdata["customData"] = connector.ConnectorCustomData()
 							rdata["response"] = responseObject
 							config.OutChannel <- rdata
 						}
 					case "object":
 						var rdata = map[string]any{}
 						rdata["model"] = connector.ConnectorModel()
+						rdata["customData"] = connector.ConnectorCustomData()
 						rdata["response"] = response.(map[string]any)
 						config.OutChannel <- rdata
 					default:
