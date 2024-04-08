@@ -4,7 +4,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"newrelic/multienv/integration/databricks"
 	"newrelic/multienv/integration/spark"
-	"newrelic/multienv/integration/utils"
 	"newrelic/multienv/pkg/config"
 	"newrelic/multienv/pkg/connect"
 	"newrelic/multienv/pkg/deser"
@@ -27,7 +26,7 @@ func InitRecv(pipeConfig *config.PipelineConfig) (config.RecvConfig, error) {
 	sparkConnectors, _ := spark.GetSparkConnectors(pipeConfig)
 	databricksConnectors, _ := databricks.GetDatabricksConnectors(pipeConfig)
 
-	connectors = sparkConnectors
+	connectors = append(connectors, sparkConnectors...)
 	connectors = append(connectors, databricksConnectors...)
 
 	return config.RecvConfig{
@@ -64,19 +63,19 @@ func Proc(data any) []model.MeltModel {
 
 	modelName := data.(map[string]any)["model"].(string)
 
-	if utils.StringInSlice(modelName, []string{"SparkJob", "SparkExecutor", "SparkStage"}) {
+	switch modelName {
+	case "SparkJob", "SparkExecutor", "SparkStage":
 		return spark.SparkProc(data)
 
-	} else if utils.StringInSlice(modelName, []string{
-		"AWSDatabricksQueryList",
+	case "AWSDatabricksQueryList",
 		"AWSDatabricksJobsRunsList",
 		"GCPDatabricksQueryList",
 		"GCPDatabricksJobsRunsList",
 		"AzureDatabricksQueryList",
-		"AzureDatabricksJobsRunsList"}) {
+		"AzureDatabricksJobsRunsList":
 		return databricks.DatabricksProc(data)
 
-	} else {
+	default:
 		log.Println("Unknown response model " + modelName)
 	}
 

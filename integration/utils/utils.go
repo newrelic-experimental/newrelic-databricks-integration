@@ -1,4 +1,4 @@
-package Utils
+package utils
 
 import (
 	"encoding/json"
@@ -51,8 +51,8 @@ func CreateMetricModels(prefix string, e reflect.Value, tags map[string]interfac
 
 	for i := 0; i < e.NumField(); i++ {
 
-		var mvalue float64
-		var mname string
+		var metricValue float64
+		var metricName string
 		mtime := time.Now()
 
 		if e.Field(i).Kind() == reflect.Struct {
@@ -61,28 +61,28 @@ func CreateMetricModels(prefix string, e reflect.Value, tags map[string]interfac
 			continue
 		}
 
-		mname = prefix + e.Type().Field(i).Name
+		metricName = prefix + e.Type().Field(i).Name
 
 		switch n := e.Field(i).Interface().(type) {
 		case int:
-			mvalue = float64(n)
+			metricValue = float64(n)
 		case int64:
-			mvalue = float64(n)
+			metricValue = float64(n)
 		case uint64:
-			mvalue = float64(n)
+			metricValue = float64(n)
 		case float64:
-			mvalue = n
+			metricValue = n
 		case bool:
-			mvalue = float64(0)
+			metricValue = float64(0)
 			if n {
-				mvalue = float64(1)
+				metricValue = float64(1)
 			}
 		default:
-			log.Trace("setMetrics :skipping metric: ", n, mname, mvalue)
+			log.Trace("setMetrics :skipping metric: ", n, metricName, metricValue)
 		}
 
 		meltMetric := model.MakeGaugeMetric(
-			mname, model.Numeric{FltVal: mvalue}, mtime)
+			metricName, model.Numeric{FltVal: metricValue}, mtime)
 
 		tags["instrumentation.name"] = "newrelic-databricks-integration"
 		meltMetric.Attributes = tags
@@ -98,26 +98,46 @@ func SetTags(prefix string, e reflect.Value, tags map[string]interface{}, metric
 
 	for k, v := range tags {
 		metricTags[k] = v
+
 	}
 
-	//log.Println(e)
-	for i := 0; i < e.NumField(); i++ {
+	if e.Kind() == reflect.Interface || e.Kind() == reflect.Ptr {
+		e = e.Elem()
+	}
 
-		var mname string
-		mname = prefix + e.Type().Field(i).Name
-		//log.Println("MNAME ", mname)
-		// populate string metrics as tags
-		switch n := e.Field(i).Interface().(type) {
-		case string:
-			// Add this in tags
-			log.Trace("setTags : adding tags ", mname, "=", n)
-			metricTags[mname] = n
-		case []int:
-			metricTags[mname] = SplitToString(n, ",")
-		default:
-			//log.Debug("setTags :Skipping tags")
+	log.Println(e)
+	switch e.Kind() {
+	case reflect.Struct:
+		for i := 0; i < e.NumField(); i++ {
+			var mname string
+			mname = prefix + e.Type().Field(i).Name
+			switch n := e.Field(i).Interface().(type) {
+			case string:
+				log.Trace("setTags : adding tags ", mname, "=", n)
+				metricTags[mname] = n
+			case []int:
+				metricTags[mname] = SplitToString(n, ",")
+			default:
+				// Handle other cases if needed
+			}
 		}
-
+	case reflect.Map:
+		for _, key := range e.MapKeys() {
+			var mname string
+			mname = prefix + key.String()
+			val := e.MapIndex(key)
+			switch n := val.Interface().(type) {
+			case string:
+				log.Trace("setTags : adding tags ", mname, "=", n)
+				metricTags[mname] = n
+			case []int:
+				metricTags[mname] = SplitToString(n, ",")
+			default:
+				// Handle other cases if needed
+			}
+		}
+	default:
+		log.Println("Unsupported kind:", e.Kind())
 	}
 }
 
