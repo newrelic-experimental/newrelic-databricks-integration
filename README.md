@@ -9,7 +9,7 @@ This integration enables you to utilize New Relic directly within your Databrick
 -  **New Relic Databricks Integration:** A direct connection between Databricks and New Relic, enabling seamless data transfer and analysis capabilities. This integration supports `spark metrics`, `databricks queries metrics`, `databricks job runs events`. This integration along with New Relic APM agent can pull `logs`, and cluster performance related data as well.
 
 
--  **OpenTelemetry (OTel) Integration:** An open-source observability framework, enabling you to generate and manage telemetry data, supports `spark metrics` from Databricks. Please follow the [instructions here](link-to-the-instruction-page) for a detailed guide on how to add initialization scripts for OTEL to your Databricks cluster.
+-  **OpenTelemetry (OTel) Integration:** An open-source observability framework, enabling you to generate and manage telemetry data, supports `spark metrics` from Databricks. Please follow the [instructions here](/opentelemetry/README.md) for a detailed guide on how to add initialization scripts for OpenTelemetry to your Databricks cluster.
 
 
 -  **Prometheus Integration:** A powerful open-source systems monitoring and alerting toolkit which can process metrics from Databricks. Support `spark metrics` from Databricks. Please follow the [instructions here](link-to-the-instruction-page) for a detailed guide on how to add initialization scripts to your Databricks cluster.
