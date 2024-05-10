@@ -952,3 +952,54 @@ type AzureJobRuns struct {
 	NextPageToken string `json:"next_page_token"`
 	PrevPageToken string `json:"prev_page_token"`
 }
+
+type AWSPipelinesList struct {
+	Statuses []struct {
+		PipelineId    string `json:"pipeline_id"`
+		State         string `json:"state"`
+		ClusterId     string `json:"cluster_id"`
+		Name          string `json:"name"`
+		LatestUpdates []struct {
+			UpdateId     string `json:"update_id"`
+			State        string `json:"state"`
+			CreationTime string `json:"creation_time"`
+		} `json:"latest_updates"`
+		CreatorUserName string `json:"creator_user_name"`
+		RunAsUserName   string `json:"run_as_user_name"`
+	} `json:"statuses"`
+	NextPageToken string `json:"next_page_token"`
+}
+
+type GCPPipelinesList struct {
+	Statuses []struct {
+		PipelineId    string `json:"pipeline_id"`
+		State         string `json:"state"`
+		ClusterId     string `json:"cluster_id"`
+		Name          string `json:"name"`
+		LatestUpdates []struct {
+			UpdateId     string `json:"update_id"`
+			State        string `json:"state"`
+			CreationTime string `json:"creation_time"`
+		} `json:"latest_updates"`
+		CreatorUserName string `json:"creator_user_name"`
+		RunAsUserName   string `json:"run_as_user_name"`
+	} `json:"statuses"`
+	NextPageToken string `json:"next_page_token"`
+}
+
+type AzurePipelinesList struct {
+	Statuses []struct {
+		PipelineId    string `json:"pipeline_id"`
+		State         string `json:"state"`
+		ClusterId     string `json:"cluster_id"`
+		Name          string `json:"name"`
+		LatestUpdates []struct {
+			UpdateId     string `json:"update_id"`
+			State        string `json:"state"`
+			CreationTime string `json:"creation_time"`
+		} `json:"latest_updates"`
+		CreatorUserName string `json:"creator_user_name"`
+		RunAsUserName   string `json:"run_as_user_name"`
+	} `json:"statuses"`
+	NextPageToken string `json:"next_page_token"`
+}

@@ -72,7 +72,10 @@ func Proc(data any) []model.MeltModel {
 		"GCPDatabricksQueryList",
 		"GCPDatabricksJobsRunsList",
 		"AzureDatabricksQueryList",
-		"AzureDatabricksJobsRunsList":
+		"AzureDatabricksJobsRunsList",
+		"AWSPipelinesList",
+		"AzurePipelinesList",
+		"GCPPipelinesList":
 		return databricks.DatabricksProc(data)
 
 	default:

@@ -62,6 +62,15 @@ func GetDatabricksConnectors(pipeConfig *config.PipelineConfig) ([]connect.Conne
 		jobRunsListConnector.SetConnectorModelName("AzureDatabricksJobsRunsList")
 	}
 
+	pipelinesListConnector := connect.MakeHttpGetConnector(databricksEndpoint+"/api/2.0/pipelines?max_results=100", headers)
+	if databricksCloudProvider == "GCP" {
+		pipelinesListConnector.SetConnectorModelName("GCPDatabricksPipelinesList")
+	} else if databricksCloudProvider == "AWS" {
+		pipelinesListConnector.SetConnectorModelName("AWSDatabricksPipelinesList")
+	} else if databricksCloudProvider == "AZURE" {
+		pipelinesListConnector.SetConnectorModelName("AzureDatabricksPipelinesList")
+	}
+
 	connectors = append(connectors, &jobRunsListConnector, &queryHistoryConnector)
 
 	return connectors, nil
@@ -119,6 +128,20 @@ func DatabricksProc(data any) []model.MeltModel {
 			out = append(out, metricModel)
 		}
 
+	case "AWSDatabricksPipelinesList":
+		var databricksJobsListModel = AWSPipelinesList{}
+		modelJson, _ := json.Marshal(responseData)
+		err := json.Unmarshal(modelJson, &databricksJobsListModel)
+		if err != nil {
+			return nil
+		}
+
+		for i := 0; i < len(databricksJobsListModel.Statuses); i++ {
+
+			metricModel := createEventModels("AWS", databricksJobsListModel.Statuses[i])
+			out = append(out, metricModel)
+		}
+
 	case "GCPDatabricksQueryList":
 
 		var databricksJobsListModel = GCPQueriesList{}
@@ -150,6 +173,19 @@ func DatabricksProc(data any) []model.MeltModel {
 			out = append(out, metricModel)
 		}
 
+	case "GCPDatabricksPipelinesList":
+		var databricksJobsListModel = GCPPipelinesList{}
+		modelJson, _ := json.Marshal(responseData)
+		err := json.Unmarshal(modelJson, &databricksJobsListModel)
+		if err != nil {
+			return nil
+		}
+
+		for i := 0; i < len(databricksJobsListModel.Statuses); i++ {
+
+			metricModel := createEventModels("GCP", databricksJobsListModel.Statuses[i])
+			out = append(out, metricModel)
+		}
 	case "AzureDatabricksQueryList":
 
 		var databricksJobsListModel = AzureQueriesList{}
@@ -178,6 +214,20 @@ func DatabricksProc(data any) []model.MeltModel {
 		for i := 0; i < len(databricksJobsListModel.Runs); i++ {
 
 			metricModel := createEventModels("Azure", databricksJobsListModel.Runs[i])
+			out = append(out, metricModel)
+		}
+
+	case "AzureDatabricksPipelinesList":
+		var databricksJobsListModel = AzurePipelinesList{}
+		modelJson, _ := json.Marshal(responseData)
+		err := json.Unmarshal(modelJson, &databricksJobsListModel)
+		if err != nil {
+			return nil
+		}
+
+		for i := 0; i < len(databricksJobsListModel.Statuses); i++ {
+
+			metricModel := createEventModels("Azure", databricksJobsListModel.Statuses[i])
 			out = append(out, metricModel)
 		}
 	default:
