@@ -3,12 +3,13 @@ package spark
 import (
 	"encoding/json"
 	"errors"
-	log "github.com/sirupsen/logrus"
 	"newrelic/multienv/integration/utils"
 	"newrelic/multienv/pkg/config"
 	"newrelic/multienv/pkg/connect"
 	"newrelic/multienv/pkg/model"
 	"reflect"
+
+	log "github.com/sirupsen/logrus"
 )
 
 func GetSparkConnectors(pipeConfig *config.PipelineConfig) ([]connect.Connector, error) {
@@ -46,8 +47,8 @@ func GetSparkConnectors(pipeConfig *config.PipelineConfig) ([]connect.Connector,
 
 		var appData map[string]interface{}
 		appData = make(map[string]interface{})
-		appData["appId"] = apps[i].ID
-		appData["appName"] = apps[i].Name
+		appData["sparkAppId"] = apps[i].ID
+		appData["sparkAppName"] = apps[i].Name
 
 		jobsConnector := connect.MakeHttpGetConnector(sparkEndpoint+"/api/v1/applications/"+apps[i].ID+"/jobs", headers)
 		jobsConnector.SetConnectorModelName("SparkJob")
@@ -87,7 +88,8 @@ func SparkProc(data any) []model.MeltModel {
 	switch responseModel {
 	case "SparkStage":
 		var sparkStagesModel = SparkStage{}
-		tagPrefix := "spark.stage."
+		tagPrefix := "sparkStage"
+		metricPrefix := "spark.stage."
 		modelJson, _ := json.Marshal(responseData)
 		err := json.Unmarshal(modelJson, &sparkStagesModel)
 		if err != nil {
@@ -96,16 +98,17 @@ func SparkProc(data any) []model.MeltModel {
 
 		e := reflect.ValueOf(&sparkStagesModel).Elem()
 		tags := make(map[string]interface{})
-		tags["appId"] = customData["appId"]
-		tags["appName"] = customData["appName"]
+		tags["sparkAppId"] = customData["sparkAppId"]
+		tags["sparkAppName"] = customData["sparkAppName"]
 		stagesTags := make(map[string]interface{})
 		utils.SetTags(tagPrefix, e, tags, stagesTags)
-		return utils.CreateMetricModels(tagPrefix, e, stagesTags)
+		return utils.CreateMetricModels(metricPrefix, e, stagesTags)
 
 	case "SparkJob":
 
 		var sparkJobsModel = SparkJob{}
-		tagPrefix := "spark.job."
+		tagPrefix := "sparkJob"
+		metricPrefix := "spark.job."
 		modelJson, _ := json.Marshal(responseData)
 		err := json.Unmarshal(modelJson, &sparkJobsModel)
 		if err != nil {
@@ -114,16 +117,17 @@ func SparkProc(data any) []model.MeltModel {
 
 		e := reflect.ValueOf(&sparkJobsModel).Elem()
 		tags := make(map[string]interface{})
-		tags["appId"] = customData["appId"]
-		tags["appName"] = customData["appName"]
+		tags["sparkAppId"] = customData["sparkAppId"]
+		tags["sparkAppName"] = customData["sparkAppName"]
 		sparkJobTags := make(map[string]interface{})
 		utils.SetTags(tagPrefix, e, tags, sparkJobTags)
-		return utils.CreateMetricModels(tagPrefix, e, sparkJobTags)
+		return utils.CreateMetricModels(metricPrefix, e, sparkJobTags)
 
 	case "SparkExecutor":
 
 		var sparkExecutorsModel = SparkExecutor{}
-		tagPrefix := "spark.executor."
+		tagPrefix := "sparkExecutor"
+		metricPrefix := "spark.executor."
 		modelJson, _ := json.Marshal(responseData)
 		err := json.Unmarshal(modelJson, &sparkExecutorsModel)
 		if err != nil {
@@ -132,11 +136,11 @@ func SparkProc(data any) []model.MeltModel {
 
 		e := reflect.ValueOf(&sparkExecutorsModel).Elem()
 		tags := make(map[string]interface{})
-		tags["appId"] = customData["appId"]
-		tags["appName"] = customData["appName"]
+		tags["sparkAppId"] = customData["sparkAppId"]
+		tags["sparkAppName"] = customData["sparkAppName"]
 		sparkExecutorTags := make(map[string]interface{})
 		utils.SetTags(tagPrefix, e, tags, sparkExecutorTags)
-		return utils.CreateMetricModels(tagPrefix, e, sparkExecutorTags)
+		return utils.CreateMetricModels(metricPrefix, e, sparkExecutorTags)
 
 	default:
 		log.Println("Unknown response model in Spark integration")

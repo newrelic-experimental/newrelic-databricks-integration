@@ -2,3 +2,6 @@
 cmd/standalone/standalone
 cmd/standalone/*.yaml
 cmd/playground
+config.yaml
+*.local.*
+main
