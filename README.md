@@ -80,12 +80,12 @@ Based on the cloud Databricks is hosted on, you will be able to run the APM agen
 
    # Create new relic yml file
    echo "common: &default_settings
-   license_key: 'xxxxxx' # Replace with your License Key
-   agent_enabled: true
+     license_key: 'xxxxxx' # Replace with your License Key
+     agent_enabled: true
 
    production:
-   <<: *default_settings
-   app_name: Databricks" > ${NR_CONFIG_FILE}
+     <<: *default_settings
+     app_name: Databricks" > ${NR_CONFIG_FILE}
    ```
 
 2. **Add the script to your Databricks cluster:** To add the initialization script to your cluster in Databricks, follow these steps:
