@@ -1,6 +1,8 @@
 package config
 
 import (
+	"strconv"
+
 	"newrelic/multienv/pkg/connect"
 	"newrelic/multienv/pkg/deser"
 )
@@ -60,9 +62,14 @@ func (conf PipelineConfig) GetString(key string) (string, bool) {
 		val_str, ok := val.(string)
 		if ok {
 			return val_str, true
-		} else {
-			return "", false
 		}
+
+		val_int, ok := val.(int)
+		if ok {
+			return strconv.Itoa(val_int), true
+		}
+
+		return "", false
 	} else {
 		return "", false
 	}
