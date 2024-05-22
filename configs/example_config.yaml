@@ -18,9 +18,28 @@ nr_api_key: xxxxx
 nr_endpoint: US
 
 # Databricks Credentials
+# https://docs.databricks.com/en/dev-tools/auth/pat.html#databricks-personal-access-tokens-for-workspace-users
 db_access_token: xxxxx
+
+# Spark Driver Proxy API Endpoint
+# Ref: https://databrickslabs.github.io/overwatch/assets/_index/realtime_helpers.html
+# Run a Scala notebook to get this, use the resultant `url`
+# val env = dbutils.notebook.getContext.apiUrl.get
+# val token = dbutils.notebook.getContext.apiToken.get
+# val clusterId = spark.conf.get("spark.databricks.clusterUsageTags.clusterId")
+# val sparkContextID = spark.conf.get("spark.databricks.sparkContextId")
+# val orgId = spark.conf.get("spark.databricks.clusterUsageTags.clusterOwnerOrgId")
+# val uiPort = spark.conf.get("spark.ui.port")
+# val apiPath = "applications"
+# val url = s"$env/driver-proxy-api/o/$orgId/$clusterId/$uiPort"
 spark_endpoint: xxxxx
-databricks_endpoint: xxxxx
+
+# Your databricks workspace URL
+# https://docs.databricks.com/en/dev-tools/auth/index.html#databricks-account-and-workspace-rest-apis
+databricks_endpoint: xxxxx #
+
+# Azure | AWS | GCP
+db_cloud: xxx
 
 # Exporter batching and timing
 batch_size: 50
