@@ -1,0 +1,30 @@
+apiKey: [YOUR_NEW_RELIC_API_KEY]
+licenseKey: [YOUR_NEW_RELIC_LICENSE_KEY]
+accountId: 123456
+region: US
+interval: 60
+runAsService: false
+pipeline:
+  receiveBufferSize: 500
+  harvestInterval: 60
+  instances: 3
+log:
+  level: warn
+  fileName: trace.log
+
+mode: databricks
+
+databricks:
+  accessToken: [YOUR_DATABRICKS_ACCESS_TOKEN]
+  workspaceHost: [YOUR_DATABRICKS_WORKSPACE_INSTANCE_NAME]
+  # RESERVED FOR FUTURE USE
+  #accountHost: https://accounts.cloud.databricks.com
+  # RESERVED FOR FUTURE USE
+  #sparkMetrics: true
+
+spark:
+  # RESERVED FOR FUTURE USE
+  #contexts:
+  #- contextUrl1
+  #- contextUrl2
+  metricPrefix: spark.
