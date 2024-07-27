@@ -14,7 +14,6 @@ builds:
       - linux
       - windows
     goarch:
-      - "386"
       - amd64
     ldflags:
       - '-s -w -X main.gInterationVersion={{.Version}} -X main.gGitCommit={{.Commit}} -X main.gBuildDate={{.Date}}'
