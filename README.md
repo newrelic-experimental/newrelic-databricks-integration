@@ -52,15 +52,18 @@ host platforms.
 
 To run the Databricks integration on a host, perform the following steps.
 
-1. Download the appropriate binary for your platform from the [latest release](https://github.com/newrelic-experimental/newrelic-databricks-integration/releases).
-1. Create a directory named `configs` in the directory containing the binary.
+1. Download the appropriate archive for your platform from the [latest release](https://github.com/newrelic-experimental/newrelic-databricks-integration/releases).
+1. Extract the archive to a new or existing directory.
+1. Create a directory named `configs` in the same directory.
 1. Create a file named `config.yml` in the `configs` directory and copy the
    contents of the file [`configs/config.template.yml`](./configs/config.template.yml)
    in this repository into it.
 1. Edit the `config.yml` file to [configure](#configuration) the integration
    appropriately for your environment.
-1. Using the directory containing the binary as the current working directory,
-   execute the binary using the appropriate [Command Line Options](#command-line-options).
+1. From the directory where the archive was extracted, execute the integration
+   binary using the command `./newrelic-databricks-integration` (or
+   `.\newrelic-databricks-integration.exe` on Windows) with the appropriate
+   [Command Line Options](#command-line-options).
 
 ## Features
 
