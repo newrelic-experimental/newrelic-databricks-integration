@@ -33,6 +33,13 @@ Billing information from Databricks.
       * [Pipeline configuration](#pipeline-configuration)
       * [Log configuration](#log-configuration)
       * [Query configuration](#query-configuration)
+* [Building](#building)
+   * [Coding Conventions](#coding-conventions)
+   * [Local Development](#local-development)
+   * [Releases](#releases)
+   * [Github Workflows](#github-workflows)
+* [Appendix](#appendix)
+   * [Monitoring Cluster Health](#monitoring-cluster-health)
 
 ## Getting Started
 
@@ -426,6 +433,167 @@ certain GitHub events.
 | [build](./.github/workflows/build.yml) | `push`, `pull_request` | Builds and tests code |
 | [release](./.github/workflows/release.yml) | `push` to `main` branch | Generates a new tag using [svu](https://github.com/caarlos0/svu) and runs [`goreleaser`](https://goreleaser.com/) |
 | [repolinter](./.github/workflows/repolinter.yml) | `pull_request` | Enforces repository content guidelines |
+
+## Appendix
+
+The sections below cover topics that are related to Databricks telemetry but
+that are not specifically part of this integration. In particular, any assets
+referenced in these sections must be installed and/or managed _separately_ from
+the integration. For example, the init scripts provided to [monitor cluster health](#monitoring-cluster-health)
+are not automatically installed or used by the integration.
+
+### Monitoring Cluster Health
+
+[New Relic Infrastructure](https://docs.newrelic.com/docs/infrastructure/infrastructure-monitoring/get-started/get-started-infrastructure-monitoring/)
+can be used to collect system metrics like CPU and memory usage from the nodes in
+a Databricks [cluster](https://docs.databricks.com/en/getting-started/concepts.html#cluster).
+Additionally, [New Relic APM](https://docs.newrelic.com/docs/apm/new-relic-apm/getting-started/introduction-apm/)
+can be used to collect application metrics like JVM heap size and GC cycle count
+from the [Apache Spark](https://spark.apache.org/docs/latest/index.html) driver
+and executor JVMs. Both are achieved using [cluster-scoped init scripts](https://docs.databricks.com/en/init-scripts/cluster-scoped.html).
+The sections below cover the installation of these init scripts.
+
+**NOTE:** Use of one or both init scripts will have a slight impact on cluster
+startup time. Therefore, consideration should be given when using the init
+scripts with a job cluster, particularly when using a job cluster scoped to a
+single task.
+
+#### Configure the New Relic license key
+
+Both the [New Relic Infrastructure Agent init script](#install-the-new-relic-infrastructure-agent-init-script)
+and the [New Relic APM Java Agent init script](#install-the-new-relic-apm-java-agent-init-script)
+require a [New Relic license key](https://docs.newrelic.com/docs/apis/intro-apis/new-relic-api-keys/#overview-keys)
+to be specified in a [custom environment variable](https://docs.databricks.com/en/compute/configure.html#environment-variables)
+named `NEW_RELIC_LICENSE_KEY`. While the license key _can_ be specified by
+hard-coding it in plain text in the compute configuration, this is not
+recommended. Instead, it is recommended to create a [secret](https://docs.databricks.com/en/security/secrets/secrets.html).
+using the [Databricks CLI](https://docs.databricks.com/en/dev-tools/cli/index.html)
+and [reference the secret in the environment variable](https://docs.databricks.com/en/security/secrets/secrets.html#reference-a-secret-in-an-environment-variable).
+
+To create the secret and set the environment variable, perform the following
+steps.
+
+1. Follow the steps to [install or update the Databricks CLI](https://docs.databricks.com/en/dev-tools/cli/install.html).
+1. Use the Databricks CLI to create a [Databricks-backed secret scope](https://docs.databricks.com/en/security/secrets/secret-scopes.html#create-a-databricks-backed-secret-scope)
+   with the name `newrelic`. For example,
+
+   ```bash
+   databricks secrets create-scope newrelic
+   ```
+
+   **NOTE:** Be sure to take note of the information in the referenced URL about
+   the `MANAGE` scope permission and use the correct version of the command.
+1. Use the Databricks CLI to create a secret for the license key in the new
+   scope with the name `licenseKey`. For example,
+
+   ```bash
+   databricks secrets put-secret --json '{
+      "scope": "newrelic",
+      "key": "licenseKey",
+      "string_value": "[YOUR_LICENSE_KEY]"
+   }'
+   ```
+
+To set the custom environment variable named `NEW_RELIC_LICENSE_KEY` and
+reference the value from the secret, follow the steps to
+[configure custom environment variables](https://docs.databricks.com/en/compute/configure.html#environment-variables)
+and add the following line after the last entry in the `Environment variables`
+field.
+
+`NEW_RELIC_LICENSE_KEY={{secrets/newrelic/licenseKey}}`
+
+#### Install the New Relic Infrastructure Agent init script
+
+The [`cluster_init_infra.sh`](./examples/cluster_init_infra.sh) script
+automatically installs the latest version of the
+[New Relic Infrastructure Agent](https://docs.newrelic.com/docs/infrastructure/infrastructure-monitoring/get-started/get-started-infrastructure-monitoring/)
+on each node of the cluster.
+
+To install the init script, perform the following steps.
+
+1. Login to your Databricks account and navigate to the desired
+   [workspace](https://docs.databricks.com/en/getting-started/concepts.html#accounts-and-workspaces).
+1. Follow [the recommendations for init scripts](https://docs.databricks.com/en/init-scripts/index.html#recommendations-for-init-scripts)
+   to store the [`cluster_init_infra.sh`](./examples/cluster_init_infra.sh)
+   script within your workspace in the recommended manner. For example, if your
+   workspace is [enabled for Unity Catalog](https://docs.databricks.com/en/data-governance/unity-catalog/get-started.html#step-1-confirm-that-your-workspace-is-enabled-for-unity-catalog),
+   you should store the init script in a [Unity Catalog volume](https://docs.databricks.com/en/ingestion/file-upload/upload-to-volume.html).
+1. Navigate to the [`Compute`](https://docs.databricks.com/en/compute/clusters-manage.html#view-compute)
+   tab and select the desired all-purpose or job compute to open the compute
+   details UI.
+1. Click the button labeled `Edit` to [edit](https://docs.databricks.com/en/compute/clusters-manage.html#edit-a-compute)
+   the compute's configuration.
+1. Follow the steps to [use the UI to configure a cluster to run an init script](https://docs.databricks.com/en/init-scripts/cluster-scoped.html#configure-a-cluster-scoped-init-script-using-the-ui)
+   and point to the location where you stored the init script in step 2.
+1. Click on the button labeled `Confirm` to save your changes and restart the
+   cluster.
+
+#### Install the New Relic APM Java Agent init script
+
+The [`cluster_init_apm.sh`](./examples/cluster_init_apm.sh) script
+automatically installs the latest version of the
+[New Relic APM Java Agent](https://docs.newrelic.com/docs/apm/agents/java-agent/getting-started/introduction-new-relic-java/)
+on each node of the cluster.
+
+To install the init script, perform the same steps as outlined in the
+[Install the New Relic Infrastructure Agent init script](#install-the-new-relic-infrastructure-agent-init-script)
+section using the [`cluster_init_apm.sh`](./examples/cluster_init_apm.sh) script
+instead of the [`cluster_init_infra.sh`](./examples/cluster_init_infra.sh)
+script.
+
+Additionally, perform the following steps.
+
+1. Login to your Databricks account and navigate to the desired
+   [workspace](https://docs.databricks.com/en/getting-started/concepts.html#accounts-and-workspaces).
+1. Navigate to the [`Compute`](https://docs.databricks.com/en/compute/clusters-manage.html#view-compute)
+   tab and select the desired all-purpose or job compute to open the compute
+   details UI.
+1. Click the button labeled `Edit` to [edit](https://docs.databricks.com/en/compute/clusters-manage.html#edit-a-compute)
+   the compute's configuration.
+1. Follow the steps to [configure custom Spark configuration properties](https://docs.databricks.com/en/compute/configure.html#spark-configuration)
+   and add the following lines after the last entry in the `Spark Config` field.
+
+   ```
+   spark.driver.extraJavaOptions -javaagent:/databricks/jars/newrelic-agent.jar
+   spark.executor.extraJavaOptions -javaagent:/databricks/jars/newrelic-agent.jar -Dnewrelic.tempdir=/tmp
+   ```
+
+1. Click on the button labeled `Confirm` to save your changes and restart the
+   cluster.
+
+#### Viewing your cluster data
+
+With the New Relic Infrastructure Agent init script installed, a host entity
+will show up for each node in the cluster.
+
+With the New Relic APM Java Agent init script installed, an APM application
+entity named `Databricks Driver` will show up for the Spark driver JVM and an
+APM application entity named `Databricks Executor` will show up for the
+executor JVMs. Note that all executor JVMs will report to a single APM
+application entity. Metrics for a specific executor can be viewed on many pages
+of the [APM UI](https://docs.newrelic.com/docs/apm/apm-ui-pages/monitoring/response-time-chart-types-apm-browser/)
+by selecting the instance from the `Instances` menu located below the time range
+selector. On the [JVM Metrics page](https://docs.newrelic.com/docs/apm/agents/java-agent/features/jvms-page-java-view-app-server-metrics-jmx/),
+the JVM metrics for a specific executor can be viewed by selecting an instance
+from the `JVM instances` table.
+
+Additionally, both the host entities and the APM entities are tagged with the
+tags listed below to make it easy to filter down to the entities that make up
+your cluster using the [entity filter bar](https://docs.newrelic.com/docs/new-relic-solutions/new-relic-one/core-concepts/search-filter-entities/)
+that is available in many places in the UI.
+
+* `databricksClusterId` - The ID of the Databricks cluster
+* `databricksClusterName` - The name of the Databricks cluster
+* `databricksIsDriverNode` - `true` if the entity is on the driver node,
+   otherwise `false`
+* `databricksIsJobCluster` - `true` if the entity is part of a [job cluster](https://docs.databricks.com/en/jobs/use-compute.html),
+   otherwise `false`
+
+Below is an example of using the `databricksClusterName` to filter down to the
+host and APM entities for a single cluster using the [entity filter bar](https://docs.newrelic.com/docs/new-relic-solutions/new-relic-one/core-concepts/search-filter-entities/)
+on the `All entities` view.
+
+![infra and apm cluster filter example](./examples/cluster-infra-apm.png)
 
 ## Support
 
