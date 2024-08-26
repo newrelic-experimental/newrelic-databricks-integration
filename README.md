@@ -23,6 +23,7 @@ Billing information from Databricks.
 
 ## Table of Contents
 
+* [Important Notes](#important-notes)
 * [Getting Started](#getting-started)
    * [On-host Deployment](#on-host)
 * [Features](#features)
@@ -33,6 +34,7 @@ Billing information from Databricks.
       * [Pipeline configuration](#pipeline-configuration)
       * [Log configuration](#log-configuration)
       * [Query configuration](#query-configuration)
+   * [Authentication](#authentication)
 * [Building](#building)
    * [Coding Conventions](#coding-conventions)
    * [Local Development](#local-development)
@@ -41,11 +43,21 @@ Billing information from Databricks.
 * [Appendix](#appendix)
    * [Monitoring Cluster Health](#monitoring-cluster-health)
 
+## Important Notes
+
+* All references within this document to Databricks documentation reference the
+  [Databricks on AWS documentation](https://docs.databricks.com/en/index.html).
+  Use the cloud switcher menu located in the upper right hand corner of the
+  documentation to select corresponding documentation for a different cloud.
+* [On-host deployment](#on-host) is currently the only supported deployment
+  type. In this deployment type, the integration is designed to run outside
+  Databricks and accesses your Databricks account and workspaces via the
+  [Databricks ReST API](https://docs.databricks.com/api/workspace/introduction)
+  using the [Databricks SDK for Go](https://docs.databricks.com/en/dev-tools/sdk-go.html).
+
 ## Getting Started
 
 To get started with the New Relic Databricks integration, [deploy the integration on a supported host environment](#on-host) and then [import](https://docs.newrelic.com/docs/query-your-data/explore-query-data/dashboards/dashboards-charts-import-export-data/#import-json) the [sample dashboard](./examples/spark-daskboard.json).
-
-**NOTE:** [On-host deployment](#on-host) is currently the only supported deployment type.
 
 ### On-host
 
@@ -289,18 +301,6 @@ no path is specified, log output will be written to the standard error stream
 
 ##### Databricks configuration
 
-###### `accessToken`
-
-| Description | Valid Values | Required | Default |
-| --- | --- | --- | --- |
-| Databricks access token | string | Y | N/a |
-
-This parameter specifies the Databricks [personal access token](https://docs.databricks.com/en/dev-tools/auth/pat.html)
-used by the integration to authenticate Databricks API calls.
-
-The access token can also be specified using the `DATABRICKS_ACCESSTOKEN`
-environment variable.
-
 ###### `workspaceHost`
 
 | Description | Valid Values | Required | Default |
@@ -313,8 +313,57 @@ used by the integration when constructing the URLs for API calls. Note that the
 value of this parameter _must not_ include the `https://` prefix, e.g.
 `https://my-databricks-instance-name.cloud.databricks.com`.
 
-The workspace host can also be specified using the `DATABRICKS_WORKSPACEHOST`
+The workspace host can also be specified using the `DATABRICKS_HOST`
 environment variable.
+
+###### `accessToken`
+
+| Description | Valid Values | Required | Default |
+| --- | --- | --- | --- |
+| Databricks personal access token | string | N | N/a |
+
+When set, the integration will use [Databricks personal access token authentication](https://docs.databricks.com/en/dev-tools/auth/pat.html)
+to authenticate Databricks API calls with the value of this parameter as the
+Databricks [personal access token](https://docs.databricks.com/en/dev-tools/auth/pat.html#databricks-personal-access-tokens-for-workspace-users).
+
+The personal access token can also be specified using the `DATABRICKS_TOKEN`
+environment variable or any other SDK-supported mechanism (e.g. the `token`
+field in a Databricks [configuration profile](https://docs.databricks.com/en/dev-tools/auth/config-profiles.html)).
+
+See the [authentication section](#authentication) for more details.
+
+###### `oauthClientId`
+
+| Description | Valid Values | Required | Default |
+| --- | --- | --- | --- |
+| Databricks OAuth M2M client ID | string | N | N/a |
+
+When set, the integration will [use a service principal to authenticate with Databricks (OAuth M2M)](https://docs.databricks.com/en/dev-tools/auth/oauth-m2m.html)
+when making Databricks API calls. The value of this parameter will be used as
+the OAuth client ID.
+
+The OAuth client ID can also be specified using the `DATABRICKS_CLIENT_ID`
+environment variable or any other SDK-supported mechanism (e.g. the `client_id`
+field in a Databricks [configuration profile](https://docs.databricks.com/en/dev-tools/auth/config-profiles.html)).
+
+See the [authentication section](#authentication) for more details.
+
+###### `oauthClientSecret`
+
+| Description | Valid Values | Required | Default |
+| --- | --- | --- | --- |
+| Databricks OAuth M2M client secret | string | N | N/a |
+
+When the [`oauthClientId`](#oauthclientid) is set, this parameter can be set to
+specify the [OAuth secret](https://docs.databricks.com/en/dev-tools/auth/oauth-m2m.html#step-3-create-an-oauth-secret-for-a-service-principal)
+associated with the [service principal](https://docs.databricks.com/en/admin/users-groups/service-principals.html#what-is-a-service-principal).
+
+The OAuth client secret can also be specified using the
+`DATABRICKS_CLIENT_SECRET` environment variable or any other SDK-supported
+mechanism (e.g. the `client_secret` field in a Databricks
+[configuration profile](https://docs.databricks.com/en/dev-tools/auth/config-profiles.html)).
+
+See the [authentication section](#authentication) for more details.
 
 ##### Spark configuration
 
@@ -333,6 +382,40 @@ executors (`app.executor.memoryUsed`) will be `spark.app.executor.memoryUsed`.
 
 **NOTE:** It is not recommended to leave this value empty as the metric names
 without a prefix may be ambiguous.
+
+### Authentication
+
+The Databricks integration uses the [Databricks SDK for Go](https://docs.databricks.com/en/dev-tools/sdk-go.html)
+to access the Databricks and Spark ReST APIs. The SDK performs authentication on
+behalf of the integration and provides many options for configuring the
+authentication type and credentials to be used. See the
+[SDK documentation](https://github.com/databricks/databricks-sdk-go?tab=readme-ov-file#authentication)
+and the [Databricks client unified authentication documentation](https://docs.databricks.com/en/dev-tools/auth/unified-auth.html)
+for details.
+
+For convenience purposes, the following parameters can be used in the
+[Databricks configuration](#databricks-configuration) section of the
+[`config.yml](#configyml) file.
+
+- [`accessToken`](#accesstoken) - When set, the integration will instruct the
+  SDK to explicitly use [Databricks personal access token authentication](https://docs.databricks.com/en/dev-tools/auth/pat.html).
+  The SDK will _not_ attempt to try other authentication mechanisms and instead
+  will fail immediately if personal access token authentication fails.
+- [`oauthClientId`](#oauthclientid) - When set, the integration will instruct
+  the SDK to explicitly [use a service principal to authenticate with Databricks (OAuth M2M)](https://docs.databricks.com/en/dev-tools/auth/oauth-m2m.html).
+  The SDK will _not_ attempt to try other authentication mechanisms and instead
+  will fail immediately if OAuth M2M authentication fails. The OAuth Client
+  secret can be set using the [`oauthClientSecret`](#oauthclientsecret)
+  configuration parameter or any of the other mechanisms supported by the SDK
+  (e.g. the `client_secret` field in a Databricks [configuration profile](https://docs.databricks.com/en/dev-tools/auth/config-profiles.html)
+  or the `DATABRICKS_CLIENT_SECRET` environment variable).
+- [`oauthClientSecret`](#oauthclientsecret) - The OAuth client secret to use for
+  [OAuth M2M authentication](https://docs.databricks.com/en/dev-tools/auth/oauth-m2m.html).
+  This value is _only_ used when [`oauthClientId`](#oauthclientid) is set in the
+  [`config.yml`](#configyml). The OAuth client secret can also be set using any
+  of the other mechanisms supported by the SDK (e.g. the `client_secret` field
+  in a Databricks [configuration profile](https://docs.databricks.com/en/dev-tools/auth/config-profiles.html)
+  or the `DATABRICKS_CLIENT_SECRET` environment variable).
 
 ## Building
 

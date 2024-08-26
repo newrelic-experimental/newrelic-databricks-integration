@@ -2,7 +2,6 @@ package spark
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"maps"
 	"strings"
@@ -10,7 +9,6 @@ import (
 	"time"
 
 	"github.com/newrelic/newrelic-labs-sdk/pkg/integration"
-	"github.com/newrelic/newrelic-labs-sdk/pkg/integration/connectors"
 	"github.com/newrelic/newrelic-labs-sdk/pkg/integration/log"
 	"github.com/newrelic/newrelic-labs-sdk/pkg/integration/model"
 	"github.com/newrelic/newrelic-labs-sdk/pkg/integration/pipeline"
@@ -18,23 +16,20 @@ import (
 
 type SparkMetricsReceiver struct {
 	i 					*integration.LabsIntegration
-	sparkContextUiUrl	string
-	authenticator 		connectors.HttpAuthenticator
+	client 				SparkApiClient
 	metricPrefix		string
 	tags				map[string]string
 }
 
 func NewSparkMetricsReceiver(
 	i *integration.LabsIntegration,
-	sparkContextUiUrl string,
-	authenticator connectors.HttpAuthenticator,
+	client SparkApiClient,
 	metricPrefix string,
 	tags map[string]string,
 ) pipeline.MetricsReceiver {
 	r := &SparkMetricsReceiver{
 		i,
-		sparkContextUiUrl,
-		authenticator,
+		client,
 		metricPrefix,
 		tags,
 	}
@@ -50,7 +45,7 @@ func (s *SparkMetricsReceiver) PollMetrics(
 	ctx context.Context,
 	writer chan <- model.Metric,
 ) error {
-	sparkApps, err := getSparkApplications(s.sparkContextUiUrl, s.authenticator)
+	sparkApps, err := s.client.GetApplications(ctx)
 	if err != nil {
 		return err
 	}
@@ -64,9 +59,9 @@ func (s *SparkMetricsReceiver) PollMetrics(
 			defer wg.Done()
 
 			err := collectSparkAppExecutorMetrics(
-				s.sparkContextUiUrl,
+				ctx,
+				s.client,
 				app,
-				s.authenticator,
 				s.metricPrefix,
 				s.tags,
 				writer,
@@ -76,9 +71,9 @@ func (s *SparkMetricsReceiver) PollMetrics(
 			}
 
 			err = collectSparkAppJobMetrics(
-				s.sparkContextUiUrl,
+				ctx,
+				s.client,
 				app,
-				s.authenticator,
 				s.metricPrefix,
 				s.tags,
 				writer,
@@ -88,9 +83,9 @@ func (s *SparkMetricsReceiver) PollMetrics(
 			}
 
 			err = collectSparkAppStageMetrics(
-				s.sparkContextUiUrl,
+				ctx,
+				s.client,
 				app,
-				s.authenticator,
 				s.metricPrefix,
 				s.tags,
 				writer,
@@ -100,9 +95,9 @@ func (s *SparkMetricsReceiver) PollMetrics(
 			}
 
 			err = collectSparkAppRDDMetrics(
-				s.sparkContextUiUrl,
+				ctx,
+				s.client,
 				app,
-				s.authenticator,
 				s.metricPrefix,
 				s.tags,
 				writer,
@@ -118,39 +113,15 @@ func (s *SparkMetricsReceiver) PollMetrics(
 	return errors.Join(errs...)
 }
 
-func getSparkApplications(
-	sparkContextUiUrl string,
-	authenticator connectors.HttpAuthenticator,
-) ([]SparkApplication, error) {
-	sparkApps := []SparkApplication{}
-
-	err := makeRequest(
-		sparkContextUiUrl + "/api/v1/applications",
-		authenticator,
-		&sparkApps,
-	)
-	if err !=  nil {
-		return nil, err
-	}
-
-	return sparkApps, nil
-}
-
 func collectSparkAppExecutorMetrics(
-	sparkContextUiUrl string,
+	ctx context.Context,
+	client SparkApiClient,
 	sparkApp *SparkApplication,
-	authenticator connectors.HttpAuthenticator,
 	metricPrefix string,
 	tags map[string]string,
 	writer chan <- model.Metric,
 ) error {
-	executors := []SparkExecutor{}
-
-	err := makeRequest(
-		sparkContextUiUrl + "/api/v1/applications/" + sparkApp.Id + "/executors",
-		authenticator,
-		&executors,
-	)
+	executors, err := client.GetApplicationExecutors(ctx, sparkApp)
 	if err !=  nil {
 		return err
 	}
@@ -159,7 +130,6 @@ func collectSparkAppExecutorMetrics(
 		log.Debugf("processing executor %s", executor.Id)
 
 		attrs := makeAppAttributesMap(
-			sparkContextUiUrl,
 			sparkApp,
 			tags,
 		)
@@ -305,20 +275,14 @@ func collectSparkAppExecutorMetrics(
 }
 
 func collectSparkAppJobMetrics(
-	sparkContextUiUrl string,
+	ctx context.Context,
+	client SparkApiClient,
 	sparkApp *SparkApplication,
-	authenticator connectors.HttpAuthenticator,
 	metricPrefix string,
 	tags map[string]string,
 	writer chan <- model.Metric,
 ) error {
-	jobs := []SparkJob{}
-
-	err := makeRequest(
-		sparkContextUiUrl + "/api/v1/applications/" + sparkApp.Id + "/jobs",
-		authenticator,
-		&jobs,
-	)
+	jobs, err := client.GetApplicationJobs(ctx, sparkApp)
 	if err !=  nil {
 		return err
 	}
@@ -332,7 +296,6 @@ func collectSparkAppJobMetrics(
 		log.Debugf("processing job %d (%s)", job.JobId, job.Name)
 
 		attrs := makeAppAttributesMap(
-			sparkContextUiUrl,
 			sparkApp,
 			tags,
 		)
@@ -462,7 +425,6 @@ func collectSparkAppJobMetrics(
 	}
 
 	attrs := makeAppAttributesMap(
-		sparkContextUiUrl,
 		sparkApp,
 		tags,
 	)
@@ -511,20 +473,14 @@ func collectSparkAppJobMetrics(
 }
 
 func collectSparkAppStageMetrics(
-	sparkContextUiUrl string,
+	ctx context.Context,
+	client SparkApiClient,
 	sparkApp *SparkApplication,
-	authenticator connectors.HttpAuthenticator,
 	metricPrefix string,
 	tags map[string]string,
 	writer chan <- model.Metric,
 ) error {
-	stages := []SparkStage{}
-
-	err := makeRequest(
-		sparkContextUiUrl + "/api/v1/applications/" + sparkApp.Id + "/stages?details=true",
-		authenticator,
-		&stages,
-	)
+	stages, err := client.GetApplicationStages(ctx, sparkApp)
 	if err != nil {
 		return err
 	}
@@ -541,7 +497,6 @@ func collectSparkAppStageMetrics(
 		stageStatus := strings.ToLower(stage.Status)
 
 		attrs := makeAppAttributesMap(
-			sparkContextUiUrl,
 			sparkApp,
 			tags,
 		)
@@ -926,7 +881,6 @@ func collectSparkAppStageMetrics(
 	}
 
 	attrs := makeAppAttributesMap(
-		sparkContextUiUrl,
 		sparkApp,
 		tags,
 	)
@@ -1292,20 +1246,14 @@ func writeStageTaskMetrics(
 }
 
 func collectSparkAppRDDMetrics(
-	sparkContextUiUrl string,
+	ctx context.Context,
+	client SparkApiClient,
 	sparkApp *SparkApplication,
-	authenticator connectors.HttpAuthenticator,
 	metricPrefix string,
 	tags map[string]string,
 	writer chan <- model.Metric,
 ) error {
-	rdds := []SparkRDD{}
-
-	err := makeRequest(
-		sparkContextUiUrl + "/api/v1/applications/" + sparkApp.Id + "/storage/rdd",
-		authenticator,
-		&rdds,
-	)
+	rdds, err := client.GetApplicationRDDs(ctx, sparkApp)
 	if err !=  nil {
 		return err
 	}
@@ -1314,7 +1262,6 @@ func collectSparkAppRDDMetrics(
 		log.Debugf("processing rdd %d", rdd.Id)
 
 		attrs := makeAppAttributesMap(
-			sparkContextUiUrl,
 			sparkApp,
 			tags,
 		)
@@ -1676,7 +1623,6 @@ func writeGauge(
 }
 
 func makeAppAttributesMap(
-	sparkContextUiUrl string,
 	sparkApp *SparkApplication,
 	tags map[string]string,
 ) map[string]interface{} {
@@ -1686,43 +1632,8 @@ func makeAppAttributesMap(
 		attrs[k] = v
 	}
 
-	attrs["sparkContextUiUrl"] = sparkContextUiUrl
 	attrs["sparkAppId"] = sparkApp.Id
 	attrs["sparkAppName"] = sparkApp.Name
 
 	return attrs
-}
-
-func makeRequest(
-	url string,
-	authenticator connectors.HttpAuthenticator,
-	response interface{},
-) error {
-	connector := connectors.NewHttpGetConnector(url)
-
-	connector.SetAuthenticator(authenticator)
-	connector.SetHeaders(map[string]string {
-		"Content-Type": "application/json",
-		"Accept": "application/json",
-	})
-
-	in, err := connector.Request()
-	if err != nil {
-		return err
-	}
-
-	log.Debugf("decoding spark JSON response for URL %s", url)
-
-	dec := json.NewDecoder(in)
-
-	err = dec.Decode(response)
-	if err != nil {
-		return err
-	}
-
-	if log.IsDebugEnabled() {
-		log.PrettyPrintJson(response)
-	}
-
-	return nil
 }

@@ -3,7 +3,6 @@ package databricks
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"strings"
 
 	databricksSdk "github.com/databricks/databricks-sdk-go"
@@ -12,29 +11,9 @@ import (
 	"github.com/newrelic-experimental/newrelic-databricks-integration/internal/spark"
 
 	"github.com/newrelic/newrelic-labs-sdk/pkg/integration"
-	"github.com/newrelic/newrelic-labs-sdk/pkg/integration/connectors"
 	"github.com/newrelic/newrelic-labs-sdk/pkg/integration/log"
 	"github.com/spf13/viper"
 )
-
-type DatabricksAuthenticator struct {
-	accessToken 		string
-}
-
-func NewDatabricksAuthenticator(accessToken string) (
-	*DatabricksAuthenticator,
-) {
-	return &DatabricksAuthenticator{ accessToken }
-}
-
-func (b *DatabricksAuthenticator) Authenticate(
-	connector *connectors.HttpConnector,
-	req *http.Request,
-) error {
-	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", b.accessToken))
-
-	return nil
-}
 
 func InitPipelines(
 	ctx context.Context,
@@ -49,32 +28,18 @@ func InitPipelines(
 		sparkMetrics = viper.GetBool("databricks.sparkMetrics")
 	}
 
-	// Databricks credentials
-	//
-	// If we are not collecting Spark metrics, we support PAT authentication
-	// using our config file or environment variables, or any supported SDK
-	// authentication method supported by the SDK itself, e.g. via the
-	// environment or .databrickscfg or cloud specific methods.
-	//
-	// If we are collecting Spark metrics, we only support PAT authentication
-	// via our config file or environment variables for host and token because
-	// I'm not sure how we would use other forms to get through the driver to
-	// the Spark UI. HTTP Basic might be a possibility but that is a @TODO.
-
-	databricksAccessToken := viper.GetString("databricks.accessToken")
-	if databricksAccessToken != "" {
-		databricksConfig.Token = databricksAccessToken
-		databricksConfig.Credentials = databricksSdkConfig.PatCredentials{}
-	} else if sparkMetrics {
-		return fmt.Errorf("missing databricks personal access token")
+	err := configureAuth(databricksConfig)
+	if err != nil {
+		return err
 	}
 
-	// Workspace Host
+	/*
+	 * If the user explicitly specifies a host in the config, use that.
+	 * Otherwise the user can specify using an SDK-supported mechanism.
+	 */
 	databricksWorkspaceHost := viper.GetString("databricks.workspaceHost")
 	if databricksWorkspaceHost != "" {
 		databricksConfig.Host = databricksWorkspaceHost
-	} else if sparkMetrics {
-		return fmt.Errorf("missing databricks workspace host")
 	}
 
 	w, err := databricksSdk.NewWorkspaceClient(databricksConfig)
@@ -83,9 +48,6 @@ func InitPipelines(
 	}
 
 	if sparkMetrics {
-		// Initialize the Spark pipelines
-		authenticator := NewDatabricksAuthenticator(databricksAccessToken)
-
 		all, err := w.Clusters.ListAll(
 			ctx,
 			databricksSdkCompute.ListClustersRequest{},
@@ -95,44 +57,56 @@ func InitPipelines(
 		}
 
 		for _, c := range all {
-			if c.State == databricksSdkCompute.StateRunning {
-				if c.ClusterSource == databricksSdkCompute.ClusterSourceUi ||
-					c.ClusterSource == databricksSdkCompute.ClusterSourceApi {
+			if c.State != databricksSdkCompute.StateRunning {
+				log.Debugf(
+					"skipping cluster %s because it is not running",
+					c.ClusterName,
+				)
+				continue
+			}
 
-					/// resolve the spark context UI URL for the cluster
-					log.Debugf(
-						"resolving Spark context UI URL for cluster %s",
-						c.ClusterName,
-					)
-					sparkContextUiUrl, err := getSparkContextUiUrlForCluster(
-						ctx,
-						w,
-						&c,
-						databricksWorkspaceHost,
-					)
-					if err != nil {
-						return err
-					}
+			if c.ClusterSource == databricksSdkCompute.ClusterSourceUi ||
+				c.ClusterSource == databricksSdkCompute.ClusterSourceApi {
 
-					// Initialize spark pipelines
-					log.Debugf(
-						"initializing Spark pipeline for cluster %s with spark context UI URL %s",
-						c.ClusterName,
-						sparkContextUiUrl,
-					)
-					err = spark.InitPipelinesForContext(
-						i,
-						sparkContextUiUrl,
-						authenticator,
-						map[string] string {
-							"clusterProvider": "databricks",
-							"databricksClusterId": c.ClusterId,
-							"databricksClusterName": c.ClusterName,
-						},
-					)
-					if err != nil {
-						return err
-					}
+				/// resolve the spark context UI URL for the cluster
+				log.Debugf(
+					"resolving Spark context UI URL for cluster %s",
+					c.ClusterName,
+				)
+				sparkContextUiPath, err := getSparkContextUiPathForCluster(
+					ctx,
+					w,
+					&c,
+				)
+				if err != nil {
+					return err
+				}
+
+				databricksSparkApiClient, err := NewDatabricksSparkApiClient(
+					sparkContextUiPath,
+					w,
+				)
+				if err != nil {
+					return err
+				}
+
+				// Initialize spark pipelines
+				log.Debugf(
+					"initializing Spark pipeline for cluster %s with spark context UI URL %s",
+					c.ClusterName,
+					sparkContextUiPath,
+				)
+				err = spark.InitPipelines(
+					i,
+					databricksSparkApiClient,
+					map[string] string {
+						"clusterProvider": "databricks",
+						"databricksClusterId": c.ClusterId,
+						"databricksClusterName": c.ClusterName,
+					},
+				)
+				if err != nil {
+					return err
 				}
 			}
 		}
@@ -143,11 +117,71 @@ func InitPipelines(
 	return nil
 }
 
-func getSparkContextUiUrlForCluster(
+func configureAuth(config *databricksSdk.Config) error {
+	/*
+	 * Any of the variables below can be specified in any of the ways that
+	 * are supported by the Databricks SDK so if we don't explicitly find one
+	 * in the config file, it's not an error.  We assume the user has used one
+	 * of the SDK mechanisms and if they haven't the SDK will return an error at
+	 * config time or when a request fails.
+	 */
+
+	// Prefer OAuth by looking for client ID in our config first
+	databricksOAuthClientId := viper.GetString("databricks.oauthClientId")
+	if databricksOAuthClientId != "" {
+		/*
+		 * If an OAuth client ID was in our config we will at this point tell
+		 * the SDK to use OAuth M2M authentication. The secret may come from our
+		 * config but can still come from any of the supported SDK mechanisms.
+		 * So if we don't find the secret in our config file, it's not an error.
+		 * Note that because we are forcing OAuth M2M authentication now, the
+		 * SDK will not try other mechanisms if OAuth M2M authentication is
+		 * unsuccessful.
+		 */
+		config.ClientID = databricksOAuthClientId
+		config.Credentials = databricksSdkConfig.M2mCredentials{}
+
+		databricksOAuthClientSecret := viper.GetString(
+			"databricks.oauthClientSecret",
+		)
+		if databricksOAuthClientSecret != "" {
+			config.ClientSecret = databricksOAuthClientSecret
+		}
+
+		return nil
+	}
+
+	// Check for a PAT in our config next
+	databricksAccessToken := viper.GetString("databricks.accessToken")
+	if databricksAccessToken != "" {
+		/*
+		* If the user didn't specify an OAuth client ID but does specify a PAT,
+		* we will at this point tell the SDK to use PAT authentication. Note
+		* that because we are forcing PAT authentication now, the SDK will not
+		* try other mechanisms if PAT authentication is unsuccessful.
+		*/
+		config.Token = databricksAccessToken
+		config.Credentials = databricksSdkConfig.PatCredentials{}
+
+		return nil
+	}
+
+	/*
+	 * At this point, it's up to the user to specify authentication via an
+	 * SDK-supported mechanism. This does not preclude the user from using OAuth
+	 * M2M authentication or PAT authentication. The user can still use these
+	 * authentication types via SDK-supported mechanisms or any other
+	 * SDK-supported authentication types via the corresponding SDK-supported
+	 * mechanisms.
+	 */
+
+	return nil
+}
+
+func getSparkContextUiPathForCluster(
 	ctx context.Context,
 	w *databricksSdk.WorkspaceClient,
 	c *databricksSdkCompute.ClusterDetails,
-	databricksWorkspaceHost string,
 ) (string, error) {
 	// @see https://databrickslabs.github.io/overwatch/assets/_index/realtime_helpers.html
 
@@ -211,8 +245,7 @@ func getSparkContextUiUrlForCluster(
 	// shown on the overwatch site.
 
 	url := fmt.Sprintf(
-		"https://%s/driver-proxy-api/o/%s/%s/%s",
-		databricksWorkspaceHost,
+		"/driver-proxy-api/o/%s/%s/%s",
 		vals[0],
 		clusterId,
 		vals[1],

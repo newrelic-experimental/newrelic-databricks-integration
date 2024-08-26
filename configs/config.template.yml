@@ -15,8 +15,10 @@ log:
 mode: databricks
 
 databricks:
-  accessToken: [YOUR_DATABRICKS_ACCESS_TOKEN]
   workspaceHost: [YOUR_DATABRICKS_WORKSPACE_INSTANCE_NAME]
+  accessToken: [YOUR_DATABRICKS_PERSONAL_ACCESS_TOKEN]
+  oauthClientId: [YOUR_DATABRICKS_SERVICE_PRINCIPAL_OAUTH_CLIENT_ID]
+  oauthClientSecret: [YOUR_DATABRICKS_SERVICE_PRINCIPAL_OAUTH_CLIENT_SECRET]
   # RESERVED FOR FUTURE USE
   #accountHost: https://accounts.cloud.databricks.com
   # RESERVED FOR FUTURE USE
