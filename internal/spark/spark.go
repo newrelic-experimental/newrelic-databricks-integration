@@ -2,7 +2,6 @@ package spark
 
 import (
 	"github.com/newrelic/newrelic-labs-sdk/pkg/integration"
-	"github.com/newrelic/newrelic-labs-sdk/pkg/integration/connectors"
 	"github.com/newrelic/newrelic-labs-sdk/pkg/integration/exporters"
 	"github.com/newrelic/newrelic-labs-sdk/pkg/integration/pipeline"
 	"github.com/spf13/viper"
@@ -299,10 +298,9 @@ func InitPipelines(i *integration.LabsIntegration) error {
 }
 */
 
-func InitPipelinesForContext(
+func InitPipelines(
 	i *integration.LabsIntegration,
-	sparkContextUiUrl string,
-	authenticator connectors.HttpAuthenticator,
+	sparkApiConnector SparkApiClient,
 	tags map[string]string,
 ) error {
 	// Create the newrelic exporter
@@ -318,8 +316,7 @@ func InitPipelinesForContext(
 	err := setupReceivers(
 		i,
 		mp,
-		sparkContextUiUrl,
-		authenticator,
+		sparkApiConnector,
 		tags,
 	)
 	if err != nil {
@@ -334,14 +331,12 @@ func InitPipelinesForContext(
 func setupReceivers(
 	i *integration.LabsIntegration,
 	mp *pipeline.MetricsPipeline,
-	sparkContextUiUrl string,
-	authenticator connectors.HttpAuthenticator,
+	client SparkApiClient,
 	tags map[string]string,
 ) error {
 	sparkReceiver := NewSparkMetricsReceiver(
 		i,
-		sparkContextUiUrl,
-		authenticator,
+		client,
 		viper.GetString("spark.metricPrefix"),
 		tags,
 	)
