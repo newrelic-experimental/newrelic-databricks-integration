@@ -300,7 +300,7 @@ func InitPipelines(i *integration.LabsIntegration) error {
 
 func InitPipelines(
 	i *integration.LabsIntegration,
-	sparkApiConnector SparkApiClient,
+	sparkApiClient SparkApiClient,
 	tags map[string]string,
 ) error {
 	// Create the newrelic exporter
@@ -316,7 +316,7 @@ func InitPipelines(
 	err := setupReceivers(
 		i,
 		mp,
-		sparkApiConnector,
+		sparkApiClient,
 		tags,
 	)
 	if err != nil {
