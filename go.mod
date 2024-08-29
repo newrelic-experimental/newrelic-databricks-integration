@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	github.com/databricks/databricks-sdk-go v0.43.0
-	github.com/newrelic/newrelic-labs-sdk v1.5.0
+	github.com/newrelic/newrelic-labs-sdk/v2 v2.0.0
 )
 
 require (
@@ -74,4 +74,4 @@ require (
 )
 
 // @TODO: remove after development
-// replace github.com/newrelic/newrelic-labs-sdk v1.5.0 => ../../newrelic/newrelic-labs-sdk
+// replace github.com/newrelic/newrelic-labs-sdk/v2 v2.0.0 => ../../newrelic/newrelic-labs-sdk

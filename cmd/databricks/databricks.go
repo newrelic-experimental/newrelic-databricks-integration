@@ -5,25 +5,14 @@ import (
 	"fmt"
 
 	"github.com/newrelic-experimental/newrelic-databricks-integration/internal/databricks"
-	"github.com/newrelic/newrelic-labs-sdk/pkg/integration"
-	"github.com/newrelic/newrelic-labs-sdk/pkg/integration/log"
+	"github.com/newrelic/newrelic-labs-sdk/v2/pkg/integration"
+	"github.com/newrelic/newrelic-labs-sdk/v2/pkg/integration/log"
 	"github.com/spf13/viper"
 )
 
-var (
-	/* Args below are populated via ldflags at build time */
-	gIntegrationID      = "com.newrelic.labs.newrelic-databricks-integration"
-	gIntegrationName    = "New Relic Databricks Integration"
-	gIntegrationVersion = "2.0.0"
-	gGitCommit          = ""
-	gBuildDate          = ""
-	gBuildInfo			= integration.BuildInfo{
-		Id:        gIntegrationID,
-		Name:      gIntegrationName,
-		Version:   gIntegrationVersion,
-		GitCommit: gGitCommit,
-		BuildDate: gBuildDate,
-	}
+const (
+	INTEGRATION_ID = "com.newrelic.labs.newrelic-databricks-integration"
+	INTEGRATION_NAME = "New Relic Databricks Integration"
 )
 
 func main() {
@@ -32,8 +21,9 @@ func main() {
 
 	// Create the integration with options
 	i, err := integration.NewStandaloneIntegration(
-		&gBuildInfo,
-		gBuildInfo.Name,
+		INTEGRATION_NAME,
+		INTEGRATION_ID,
+		INTEGRATION_NAME,
 		integration.WithInterval(60),
 		integration.WithLicenseKey(),
 		integration.WithApiKey(),

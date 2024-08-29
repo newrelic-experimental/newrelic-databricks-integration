@@ -7,6 +7,7 @@ import (
 	databricksSdk "github.com/databricks/databricks-sdk-go"
 	databricksSdkClient "github.com/databricks/databricks-sdk-go/client"
 	"github.com/newrelic-experimental/newrelic-databricks-integration/internal/spark"
+	"github.com/newrelic/newrelic-labs-sdk/v2/pkg/integration/connectors"
 )
 
 type DatabricksSparkApiClient struct {
@@ -52,9 +53,7 @@ func (s *DatabricksSparkApiClient) GetApplications(
 	// the databricksClient on the WorkspaceClient
 
 	path := s.sparkContextUiPath + "/api/v1/applications"
-	headers := make(map[string]string)
-	headers["Accept"] = "application/json"
-	headers["Content-Type"] = "application/json"
+	headers := makeHeaders()
 
 	err := s.client.Do(ctx, http.MethodGet, path, headers, nil, &sparkApps)
 	if err != nil {
@@ -71,9 +70,7 @@ func (s *DatabricksSparkApiClient) GetApplicationExecutors(
 	executors := []spark.SparkExecutor{}
 
 	path := s.sparkContextUiPath + "/api/v1/applications/" + app.Id + "/executors"
-	headers := make(map[string]string)
-	headers["Accept"] = "application/json"
-	headers["Content-Type"] = "application/json"
+	headers := makeHeaders()
 
 	err := s.client.Do(ctx, http.MethodGet, path, headers, nil, &executors)
 	if err != nil {
@@ -90,9 +87,7 @@ func (s *DatabricksSparkApiClient) GetApplicationJobs(
 	jobs := []spark.SparkJob{}
 
 	path := s.sparkContextUiPath + "/api/v1/applications/" + app.Id + "/jobs"
-	headers := make(map[string]string)
-	headers["Accept"] = "application/json"
-	headers["Content-Type"] = "application/json"
+	headers := makeHeaders()
 
 	err := s.client.Do(ctx, http.MethodGet, path, headers, nil, &jobs)
 	if err != nil {
@@ -109,9 +104,7 @@ func (s *DatabricksSparkApiClient) GetApplicationStages(
 	stages := []spark.SparkStage{}
 
 	path := s.sparkContextUiPath + "/api/v1/applications/" + app.Id + "/stages?details=true"
-	headers := make(map[string]string)
-	headers["Accept"] = "application/json"
-	headers["Content-Type"] = "application/json"
+	headers := makeHeaders()
 
 	err := s.client.Do(ctx, http.MethodGet, path, headers, nil, &stages)
 	if err != nil {
@@ -128,9 +121,7 @@ func (s *DatabricksSparkApiClient) GetApplicationRDDs(
 	rdds := []spark.SparkRDD{}
 
 	path := s.sparkContextUiPath + "/api/v1/applications/" + app.Id + "/storage/rdd"
-	headers := make(map[string]string)
-	headers["Accept"] = "application/json"
-	headers["Content-Type"] = "application/json"
+	headers := makeHeaders()
 
 	err := s.client.Do(ctx, http.MethodGet, path, headers, nil, &rdds)
 	if err != nil {
@@ -138,4 +129,14 @@ func (s *DatabricksSparkApiClient) GetApplicationRDDs(
 	}
 
 	return rdds, nil
+}
+
+func makeHeaders() map[string]string {
+	headers := make(map[string]string)
+
+	headers["Accept"] = "application/json"
+	headers["Content-Type"] = "application/json"
+	headers["User-Agent"] = connectors.GetUserAgent()
+
+	return headers
 }

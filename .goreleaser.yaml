@@ -16,7 +16,7 @@ builds:
     goarch:
       - amd64
     ldflags:
-      - '-s -w -X main.gInterationVersion={{.Version}} -X main.gGitCommit={{.Commit}} -X main.gBuildDate={{.Date}}'
+      - '-s -w -X github.com/newrelic/newrelic-labs-sdk/v2/pkg/integration/build.gBuildVersion={{.Version}} -X github.com/newrelic/newrelic-labs-sdk/v2/pkg/integration/build.gBuildCommit={{.Commit}} -X github.com/newrelic/newrelic-labs-sdk/v2/pkg/integration/build.gBuildDate={{.Date}}'
 
 archives:
   - builds:

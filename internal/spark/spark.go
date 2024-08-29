@@ -1,9 +1,9 @@
 package spark
 
 import (
-	"github.com/newrelic/newrelic-labs-sdk/pkg/integration"
-	"github.com/newrelic/newrelic-labs-sdk/pkg/integration/exporters"
-	"github.com/newrelic/newrelic-labs-sdk/pkg/integration/pipeline"
+	"github.com/newrelic/newrelic-labs-sdk/v2/pkg/integration"
+	"github.com/newrelic/newrelic-labs-sdk/v2/pkg/integration/exporters"
+	"github.com/newrelic/newrelic-labs-sdk/v2/pkg/integration/pipeline"
 	"github.com/spf13/viper"
 )
 
@@ -306,7 +306,12 @@ func InitPipelines(
 	// Create the newrelic exporter
 	newRelicExporter := exporters.NewNewRelicExporter(
 		"newrelic-api",
-		i,
+		i.Name,
+		i.Id,
+		i.NrClient,
+		i.GetLicenseKey(),
+		i.GetRegion(),
+		i.DryRun,
 	)
 
 	// Create a metrics pipeline

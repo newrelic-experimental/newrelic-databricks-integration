@@ -4,7 +4,7 @@ import (
 	"context"
 
 	databricksSdk "github.com/databricks/databricks-sdk-go"
-	"github.com/newrelic/newrelic-labs-sdk/pkg/integration/model"
+	"github.com/newrelic/newrelic-labs-sdk/v2/pkg/integration/model"
 )
 
 type DatabricksSdkReceiver struct {
