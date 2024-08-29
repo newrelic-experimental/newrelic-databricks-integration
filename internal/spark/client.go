@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/newrelic/newrelic-labs-sdk/pkg/integration/connectors"
-	"github.com/newrelic/newrelic-labs-sdk/pkg/integration/log"
+	"github.com/newrelic/newrelic-labs-sdk/v2/pkg/integration/connectors"
+	"github.com/newrelic/newrelic-labs-sdk/v2/pkg/integration/log"
 )
 
 type SparkApiClient interface {

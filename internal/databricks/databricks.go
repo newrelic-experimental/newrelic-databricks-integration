@@ -10,8 +10,8 @@ import (
 	databricksSdkCompute "github.com/databricks/databricks-sdk-go/service/compute"
 	"github.com/newrelic-experimental/newrelic-databricks-integration/internal/spark"
 
-	"github.com/newrelic/newrelic-labs-sdk/pkg/integration"
-	"github.com/newrelic/newrelic-labs-sdk/pkg/integration/log"
+	"github.com/newrelic/newrelic-labs-sdk/v2/pkg/integration"
+	"github.com/newrelic/newrelic-labs-sdk/v2/pkg/integration/log"
 	"github.com/spf13/viper"
 )
 

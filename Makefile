@@ -10,9 +10,10 @@ GIT_COMMIT = $(shell git rev-parse HEAD)
 BUILD_DATE = $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 GIT_TAG    = $(shell git describe --tags --abbrev=0 --exact-match 2>/dev/null)
 
-LDFLAGS += -X main.gInterationVersion=$(GIT_TAG)
-LDFLAGS += -X main.gGitCommit=${GIT_COMMIT}
-LDFLAGS += -X main.gBuildDate=${BUILD_DATE}
+SYM_PATH   = github.com/newrelic/newrelic-labs-sdk/v2/pkg/integration/build
+LDFLAGS += -X $(SYM_PATH).gBuildVersion=$(GIT_TAG)
+LDFLAGS += -X $(SYM_PATH).gBuildCommit=${GIT_COMMIT}
+LDFLAGS += -X $(SYM_PATH).gBuildDate=${BUILD_DATE}
 
 all: build
 
