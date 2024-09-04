@@ -1030,7 +1030,7 @@
                   "accountIds": [
                     0
                   ],
-                  "query": "FROM Metric SELECT average(spark.app.executor.memory.usedOnHeapStorageMemory) WHERE sparkAppExecutorId != 'driver' AND spark.app.executor.memory.usedOnHeapStorageMemory IS NOT NULL TIMESERIES FACET sparkAppExecutorId"
+                  "query": "FROM Metric SELECT average(spark.app.executor.memory.usedOnHeapStorage) WHERE sparkAppExecutorId != 'driver' AND spark.app.executor.memory.usedOnHeapStorage IS NOT NULL TIMESERIES FACET sparkAppExecutorId"
                 }
               ],
               "platformOptions": {
@@ -1074,7 +1074,7 @@
                   "accountIds": [
                     0
                   ],
-                  "query": "FROM Metric SELECT average(spark.app.executor.memory.usedOffHeapStorageMemory) WHERE sparkAppExecutorId != 'driver' AND spark.app.executor.memory.usedOffHeapStorageMemory IS NOT NULL TIMESERIES FACET sparkAppExecutorId"
+                  "query": "FROM Metric SELECT average(spark.app.executor.memory.usedOffHeapStorage) WHERE sparkAppExecutorId != 'driver' AND spark.app.executor.memory.usedOffHeapStorage IS NOT NULL TIMESERIES FACET sparkAppExecutorId"
                 }
               ],
               "platformOptions": {
