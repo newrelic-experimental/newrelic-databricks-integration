@@ -3,6 +3,7 @@ package databricks
 import (
 	"context"
 	"fmt"
+	"maps"
 	"strings"
 
 	databricksSdk "github.com/databricks/databricks-sdk-go"
@@ -18,6 +19,7 @@ import (
 func InitPipelines(
 	ctx context.Context,
 	i *integration.LabsIntegration,
+	tags map[string]string,
 ) error {
 	// Databricks config
 	databricksConfig := &databricksSdk.Config{}
@@ -96,14 +98,17 @@ func InitPipelines(
 					c.ClusterName,
 					sparkContextUiPath,
 				)
-				err = spark.InitPipelines(
+
+				newTags := maps.Clone(tags)
+				newTags["clusterProvider"] = "databricks"
+				newTags["databricksClusterId"] = c.ClusterId
+				newTags["databricksClusterName"] = c.ClusterName
+
+				err = spark.InitPipelinesWithClient(
 					i,
 					databricksSparkApiClient,
-					map[string] string {
-						"clusterProvider": "databricks",
-						"databricksClusterId": c.ClusterId,
-						"databricksClusterName": c.ClusterName,
-					},
+					viper.GetString("databricks.sparkMetricPrefix"),
+					newTags,
 				)
 				if err != nil {
 					return err
