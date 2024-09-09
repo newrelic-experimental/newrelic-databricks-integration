@@ -16,8 +16,9 @@
 
 # New Relic Databricks Integration
 
-This integration collects Spark telemetry, Workflow telemetry, and Cost and
-Billing information from Databricks.
+This integration collects telemetry from Databricks (including Spark on
+Databricks) and/or Spark telemetry from any Spark deployment. See the
+[Features](#features) section for supported telemetry types.
 
 ![Apache Spark Dashboard Screenshot](./examples/spark-dashboard-jobs.png)
 
@@ -50,24 +51,41 @@ Billing information from Databricks.
   Use the cloud switcher menu located in the upper right hand corner of the
   documentation to select corresponding documentation for a different cloud.
 * [On-host deployment](#on-host) is currently the only supported deployment
-  type. In this deployment type, the integration is designed to run outside
-  Databricks and accesses your Databricks account and workspaces via the
-  [Databricks ReST API](https://docs.databricks.com/api/workspace/introduction)
-  using the [Databricks SDK for Go](https://docs.databricks.com/en/dev-tools/sdk-go.html).
+  type. For Databricks and non-Databricks Spark deployments, the integration can
+  be deployed on [any supported host platform](#deploy-the-integration-on-a-host).
+  For Databricks, support is also provided to deploy the integration
+  on the [driver node of a Databricks cluster](#deploy-the-integration-on-the-driver-node-of-a-databricks-cluster)
+  using a [cluster-scoped init script](https://docs.databricks.com/en/init-scripts/cluster-scoped.html).
 
 ## Getting Started
 
-To get started with the New Relic Databricks integration, [deploy the integration on a supported host environment](#on-host) and then [import](https://docs.newrelic.com/docs/query-your-data/explore-query-data/dashboards/dashboards-charts-import-export-data/#import-json) the [sample dashboard](./examples/spark-daskboard.json).
+To get started with the New Relic Databricks integration,
+[deploy the integration](#on-host) using a supported deployment type,
+[configure](#configuration) the integration using supported configuration
+mechanisms, and then [import](https://docs.newrelic.com/docs/query-your-data/explore-query-data/dashboards/dashboards-charts-import-export-data/#import-json)
+the [sample dashboard](./examples/spark-dashboard.json).
 
 ### On-host
+
+The New Relic Databricks integration can be run on any supported host platform.
+The integration will collect Databricks telemetry (including Spark on
+Databricks) via the [Databricks ReST API](https://docs.databricks.com/api/workspace/introduction)
+using the [Databricks SDK for Go](https://docs.databricks.com/en/dev-tools/sdk-go.html)
+and/or Spark telemetry from a non-Databricks Spark deployment via the
+[Spark ReST API](https://spark.apache.org/docs/3.5.2/monitoring.html#rest-api).
+
+The New Relic Databricks integration can also be deployed on the driver node of
+a Databricks [cluster](https://docs.databricks.com/en/getting-started/concepts.html#cluster)
+using the provided [init script](./init/cluster_init_integration.sh) to install
+and configure the integration at cluster startup time.
+
+#### Deploy the integration on a host
 
 The New Relic Databricks integration provides binaries for the following
 host platforms.
 
 * Linux amd64
 * Windows amd64
-
-#### Deploy the integration on host
 
 To run the Databricks integration on a host, perform the following steps.
 
@@ -84,16 +102,74 @@ To run the Databricks integration on a host, perform the following steps.
    `.\newrelic-databricks-integration.exe` on Windows) with the appropriate
    [Command Line Options](#command-line-options).
 
+#### Deploy the integration on the driver node of a Databricks cluster
+
+The New Relic Databricks integration can be deployed on the driver node of a
+Databricks [cluster](https://docs.databricks.com/en/getting-started/concepts.html#cluster)
+using a [cluster-scoped init script](https://docs.databricks.com/en/init-scripts/cluster-scoped.html).
+The [init script](./init/cluster_init_integration.sh) uses custom
+[environment variables](https://docs.databricks.com/en/compute/configure.html#env-var)
+to specify configuration parameters necessary for the integration [configuration](#configuration).
+
+To install the [init script](./init/cluster_init_integration.sh), perform the
+following steps.
+
+1. Login to your Databricks account and navigate to the desired
+   [workspace](https://docs.databricks.com/en/getting-started/concepts.html#accounts-and-workspaces).
+1. Follow the [recommendations for init scripts](https://docs.databricks.com/en/init-scripts/index.html#recommendations-for-init-scripts)
+   to store the [`cluster_init_integration.sh`](./init/cluster_init_integration.sh)
+   script within your workspace in the recommended manner. For example, if your
+   workspace is [enabled for Unity Catalog](https://docs.databricks.com/en/data-governance/unity-catalog/get-started.html#step-1-confirm-that-your-workspace-is-enabled-for-unity-catalog),
+   you should store the init script in a [Unity Catalog volume](https://docs.databricks.com/en/ingestion/file-upload/upload-to-volume.html).
+1. Navigate to the [`Compute`](https://docs.databricks.com/en/compute/clusters-manage.html#view-compute)
+   tab and select the desired all-purpose or job compute to open the compute
+   details UI.
+1. Click the button labeled `Edit` to [edit the compute's configuration](https://docs.databricks.com/en/compute/clusters-manage.html#edit-a-compute).
+1. Follow the steps to [use the UI to configure a cluster-scoped init script](https://docs.databricks.com/en/init-scripts/cluster-scoped.html#configure-a-cluster-scoped-init-script-using-the-ui)
+   and point to the location where you stored the init script in step 2 above.
+1. If your cluster is not running, click on the button labeled `Confirm` to
+   save your changes. Then, restart the cluster. If your cluster is already
+   running, click on the button labeled `Confirm and restart` to save your
+   changes and restart the cluster.
+
+Additionally, follow the steps to [set environment variables](https://docs.databricks.com/en/compute/configure.html#environment-variables)
+to add the following environment variables.
+
+* `NEW_RELIC_API_KEY` - Your [New Relic User API Key](https://docs.newrelic.com/docs/apis/intro-apis/new-relic-api-keys/#user-key)
+* `NEW_RELIC_LICENSE_KEY` - Your [New Relic License Key](https://docs.newrelic.com/docs/apis/intro-apis/new-relic-api-keys/#license-key)
+* `NEW_RELIC_ACCOUNT_ID` - Your [New Relic Account ID](https://docs.newrelic.com/docs/accounts/accounts-billing/account-structure/account-id/)
+* `NEW_RELIC_REGION` - The [region](https://docs.newrelic.com/docs/accounts/accounts-billing/account-setup/choose-your-data-center/#regions-availability)
+   of your New Relic account; one of `US` or `EU`
+* `NEW_RELIC_DATABRICKS_WORKSPACE_HOST` - The [instance name](https://docs.databricks.com/en/workspace/workspace-details.html)
+   of the target Databricks instance
+* `NEW_RELIC_DATABRICKS_ACCESS_TOKEN` - To [authenticate](#authentication) with
+   a [personal access token](https://docs.databricks.com/en/dev-tools/auth/pat.html#databricks-personal-access-tokens-for-workspace-users),
+   your personal access token
+* `NEW_RELIC_DATABRICKS_OAUTH_CLIENT_ID` - To [use a service principal to authenticate with Databricks (OAuth M2M)](https://docs.databricks.com/en/dev-tools/auth/oauth-m2m.html),
+   the OAuth client ID for the service principal
+* `NEW_RELIC_DATABRICKS_OAUTH_CLIENT_SECRET` - To [use a service principal to authenticate with Databricks (OAuth M2M)](https://docs.databricks.com/en/dev-tools/auth/oauth-m2m.html),
+   an OAuth client secret associated with the service principal
+
+Note that the `NEW_RELIC_API_KEY` and `NEW_RELIC_ACCOUNT_ID` are currently
+unused but are required by the [new-relic-client-go](https://github.com/newrelic/newrelic-client-go)
+module used by the integration. Additionally, note that only the personal access
+token _or_ OAuth credentials need to be specified but not both. If both are
+specified, the OAuth credentials take precedence. Finally, make sure to restart
+the cluster following the configuration of the environment variables.
+
 ## Features
 
 The New Relic Databricks integration supports the following capabilities.
 
-* [Collect Spark telemetry](#event-log-files)
+* Collect Spark telemetry
 
   The New Relic Databricks integration can collect telemetry from Spark running
   on Databricks. By default, the integration will automatically connect to
   and collect telemetry from the Spark deployments in all clusters created via
   the UI or API in the specified workspace.
+
+  The New Relic Databricks integration can also collect Spark telemetry from any
+  non-Databricks Spark deployment.
 
 ## Usage
 
@@ -109,12 +185,18 @@ The New Relic Databricks integration supports the following capabilities.
 
 ### Configuration
 
+The Databricks integration is configured using the [`config.yml`](#configyml)
+and/or environment variables. For Databricks, authentication related configuration
+parameters may also be set in a [Databricks configuration profile](https://docs.databricks.com/en/dev-tools/auth/config-profiles.html).
+In all cases, where applicable, environment variables always take precedence.
+
 #### `config.yml`
 
-The Databricks integration is configured using a YAML file named [`config.yml`](#configyml).
-The default location for this file is `configs/config.yml` relative to the
-current working directory when the integration binary is executed. The supported
-configuration parameters are listed below. See [`config.template.yml`](./configs/config.template.yml)
+All configuration parameters for the Databricks integration can be set using a
+YAML file named [`config.yml`](#configyml). The default location for this file
+is `configs/config.yml` relative to the current working directory when the
+integration binary is executed. The supported configuration parameters are
+listed below. See [`config.template.yml`](./configs/config.template.yml)
 for a full configuration example.
 
 ##### General configuration
@@ -176,7 +258,7 @@ use with an external scheduling mechanism like [cron](https://man7.org/linux/man
 
 | Description | Valid Values | Required | Default |
 | --- | --- | --- | --- |
-| The root node for the set of [pipeline configuration](#pipeline-configuration) parameters | YAML Sequence | N | N/a |
+| The root node for the set of [pipeline configuration](#pipeline-configuration) parameters | YAML Mapping | N | N/a |
 
 The integration retrieves, processes, and exports data to New Relic using
 a data pipeline consisting of one or more receivers, a processing chain, and a
@@ -188,7 +270,7 @@ element groups together the configuration parameters related to
 
 | Description | Valid Values | Required | Default |
 | --- | --- | --- | --- |
-| The root node for the set of [log configuration](#log-configuration) parameters | YAML Sequence | N | N/a |
+| The root node for the set of [log configuration](#log-configuration) parameters | YAML Mapping | N | N/a |
 
 The integration uses the [logrus](https://pkg.go.dev/github.com/sirupsen/logrus)
 package for application logging. This element groups together the configuration
@@ -203,34 +285,47 @@ parameters related to [log configuration](#log-configuration).
 The integration execution mode. Currently, the only supported execution mode is
 `databricks`.
 
+**Deprecated:** As of v2.3.0, this configuration parameter is no longer used.
+The presence (or not) of the [`databricks`](#databricks) top-level node will be
+used to enable (or disable) the Databricks collector. Likewise, the presence
+(or not) of the [`spark`](#spark) top-level node will be used to enable (or
+disable) the Spark collector separate from Databricks.
+
 ###### `databricks`
 
 | Description | Valid Values | Required | Default |
 | --- | --- | --- | --- |
-| The root node for the set of [Databricks configuration](#databricks-configuration) parameters | YAML Sequence | N | N/a |
+| The root node for the set of [Databricks configuration](#databricks-configuration) parameters | YAML Mapping | N | N/a |
 
-This element groups together the configuration parameters related to
-[Databricks configuration](#databricks-configuration).
+This element groups together the configuration parameters to [configure](#databricks-configuration)
+the Databricks collector. If this element is not specified, the Databricks
+collector will not be run.
 
-The configuration parameters in this section are only needed when collecting
-Databricks specific data such as workflow and job telemetry or Databricks
-account information or when collecting telemetry from Spark running on a
-Databricks cluster.
+Note that this node is not required. It can be used with or without the
+[`spark`](#spark) top-level node.
 
 ###### `spark`
 
 | Description | Valid Values | Required | Default |
 | --- | --- | --- | --- |
-| The root node for the set of [Spark configuration](#spark-configuration) parameters | YAML Sequence | N | N/a |
+| The root node for the set of [Spark configuration](#spark-configuration) parameters | YAML Mapping | N | N/a |
 
-This element groups together the configuration parameters related to
-[Spark configuration](#spark-configuration).
+This element groups together the configuration parameters to [configure](#spark-configuration)
+the Spark collector. If this element is not specified, the Spark collector will
+not be run.
 
-The configuration parameters in this section can be used with or without the
-[`databricks`](#databricks) configuration parameters depending on whether the
-target Spark instance(s) are running on Databricks or not. See the
-[Databricks configuration](#databricks-configuration) section for details on
-collecting Spark telemetry from Spark running on Databricks.
+Note that this node is not required. It can be used with or without the
+[`databricks`](#databricks) top-level node.
+
+###### `tags`
+
+| Description | Valid Values | Required | Default |
+| --- | --- | --- | --- |
+| The root node for a set of custom [tags](https://docs.newrelic.com/docs/new-relic-solutions/new-relic-one/core-concepts/use-tags-help-organize-find-your-data/) to add to all telemetry sent to New Relic | YAML Mapping | N | N/a |
+
+This element specifies a group of custom [tags](https://docs.newrelic.com/docs/new-relic-solutions/new-relic-one/core-concepts/use-tags-help-organize-find-your-data/)
+that will be added to all telemetry sent to New Relic. The tags are specified as
+a set of key-value pairs.
 
 ##### Pipeline configuration
 
@@ -301,6 +396,9 @@ no path is specified, log output will be written to the standard error stream
 
 ##### Databricks configuration
 
+The Databricks configuration parameters are used to configure the Databricks
+collector.
+
 ###### `workspaceHost`
 
 | Description | Valid Values | Required | Default |
@@ -365,23 +463,79 @@ mechanism (e.g. the `client_secret` field in a Databricks
 
 See the [authentication section](#authentication) for more details.
 
+###### `sparkMetrics`
+
+| Description | Valid Values | Required | Default |
+| --- | --- | --- | --- |
+| Flag to enable automatic collection of Spark metrics. | `true` / `false` | N | `true` |
+
+By default, when the Databricks collector is enabled, it will automatically
+collect Spark telemetry from Spark running on Databricks.
+
+This flag can be used to disable the collection of Spark telemetry by the
+Databricks collector. This may be useful to control data ingest when business
+requirements call for the collection of non-Spark related Databricks telemetry
+and Spark telemetry is not used. This flag is also used by the integration when
+it is [deployed directly on the driver node of a Databricks cluster](#deploy-the-integration-on-the-driver-node-of-a-databricks-cluster) using the
+the provided [init script](./init/cluster_init_integration.sh) since Spark
+telemetry is collected by the Spark collector in this scenario.
+
+###### `sparkMetricPrefix`
+
+| Description | Valid Values | Required | Default |
+| --- | --- | --- | --- |
+| A prefix to prepend to Spark metric names | string | N | N/a |
+
+This parameter serves the same purpose as the [`metricPrefix`](#metricprefix)
+parameter of the [Spark configuration](#spark-configuration) except that it
+applies to Spark telemetry collected by the Databricks collector. See the
+[`metricPrefix`](#metricprefix) parameter of the [Spark configuration](#spark-configuration)
+for more details.
+
+Note that this parameter has no effect on Spark telemetry collected by the Spark
+collector. This includes the case when the integration is
+[deployed directly on the driver node of a Databricks cluster](#deploy-the-integration-on-the-driver-node-of-a-databricks-cluster)
+using the the provided [init script](./init/cluster_init_integration.sh)
+since Spark telemetry is collected by the Spark collector in this scenario.
+
 ##### Spark configuration
+
+The Spark configuration parameters are used to configure the Spark collector.
+
+###### `webUiUrl`
+
+| Description | Valid Values | Required | Default |
+| --- | --- | --- | --- |
+| The [Web UI](https://spark.apache.org/docs/3.5.2/web-ui.html) URL of an application on the Spark deployment to monitor | string | N | N/a |
+
+This parameter can be used to monitor a non-Databricks Spark deployment. It
+specifes the URL of the [Web UI](https://spark.apache.org/docs/3.5.2/web-ui.html)
+of an application running on the Spark deployment to monitor. The value should
+be of the form `http[s]://<hostname>:<port>` where `<hostname>` is the hostname
+of the Spark deployment to monitor and `<port>` is the port number of the
+Spark application's Web UI (typically 4040 or 4041, 4042, etc if more than one
+application is running on the same host).
+
+Note that the value must not contain a path. The path of the [Spark ReST API](https://spark.apache.org/docs/3.5.2/monitoring.html#rest-api)
+endpoints (mounted at `/api/v1`) will automatically be prepended.
 
 ###### `metricPrefix`
 
 | Description | Valid Values | Required | Default |
 | --- | --- | --- | --- |
-| A prefix to prepend to Spark metric names | string | N | `spark.` |
+| A prefix to prepend to Spark metric names | string | N | N/a |
 
 This parameter specifies a prefix that will be prepended to each Spark metric
 name when the metric is exported to New Relic.
 
-For example, if this parameter is set to `spark.` (the default), then the full
-name of the metric representing the value of the memory used on application
-executors (`app.executor.memoryUsed`) will be `spark.app.executor.memoryUsed`.
+For example, if this parameter is set to `spark.`, then the full name of the
+metric representing the value of the memory used on application executors
+(`app.executor.memoryUsed`) will be `spark.app.executor.memoryUsed`.
 
-**NOTE:** It is not recommended to leave this value empty as the metric names
-without a prefix may be ambiguous.
+Note that it is not recommended to leave this value empty as the metric names
+without a prefix may be ambiguous. Additionally, note that this parameter has no
+effect on Spark telemetry collected by the Databricks collector. In that case,
+use the [`sparkMetricPrefix`](#sparkmetricprefix) instead.
 
 ### Authentication
 
@@ -608,8 +762,10 @@ To install the init script, perform the following steps.
    the compute's configuration.
 1. Follow the steps to [use the UI to configure a cluster to run an init script](https://docs.databricks.com/en/init-scripts/cluster-scoped.html#configure-a-cluster-scoped-init-script-using-the-ui)
    and point to the location where you stored the init script in step 2.
-1. Click on the button labeled `Confirm` to save your changes and restart the
-   cluster.
+1. If your cluster is not running, click on the button labeled `Confirm` to
+   save your changes. Then, restart the cluster. If your cluster is already
+   running, click on the button labeled `Confirm and restart` to save your
+   changes and restart the cluster.
 
 #### Install the New Relic APM Java Agent init script
 
@@ -641,8 +797,10 @@ Additionally, perform the following steps.
    spark.executor.extraJavaOptions -javaagent:/databricks/jars/newrelic-agent.jar -Dnewrelic.tempdir=/tmp
    ```
 
-1. Click on the button labeled `Confirm` to save your changes and restart the
-   cluster.
+1. If your cluster is not running, click on the button labeled `Confirm` to
+   save your changes. Then, restart the cluster. If your cluster is already
+   running, click on the button labeled `Confirm and restart` to save your
+   changes and restart the cluster.
 
 #### Viewing your cluster data
 

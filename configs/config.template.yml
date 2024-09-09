@@ -11,22 +11,18 @@ pipeline:
 log:
   level: warn
   fileName: trace.log
-
-mode: databricks
-
 databricks:
   workspaceHost: [YOUR_DATABRICKS_WORKSPACE_INSTANCE_NAME]
   accessToken: [YOUR_DATABRICKS_PERSONAL_ACCESS_TOKEN]
   oauthClientId: [YOUR_DATABRICKS_SERVICE_PRINCIPAL_OAUTH_CLIENT_ID]
   oauthClientSecret: [YOUR_DATABRICKS_SERVICE_PRINCIPAL_OAUTH_CLIENT_SECRET]
+  sparkMetrics: true
+  sparkMetricPrefix: spark.
   # RESERVED FOR FUTURE USE
   #accountHost: https://accounts.cloud.databricks.com
-  # RESERVED FOR FUTURE USE
-  #sparkMetrics: true
-
 spark:
-  # RESERVED FOR FUTURE USE
-  #contexts:
-  #- contextUrl1
-  #- contextUrl2
+  webUiUrl: http://localhost:4040
   metricPrefix: spark.
+tags:
+  key1: value
+  key2: value

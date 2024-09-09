@@ -1,8 +1,11 @@
 package spark
 
 import (
+	"context"
+
 	"github.com/newrelic/newrelic-labs-sdk/v2/pkg/integration"
 	"github.com/newrelic/newrelic-labs-sdk/v2/pkg/integration/exporters"
+	"github.com/newrelic/newrelic-labs-sdk/v2/pkg/integration/log"
 	"github.com/newrelic/newrelic-labs-sdk/v2/pkg/integration/pipeline"
 	"github.com/spf13/viper"
 )
@@ -275,32 +278,40 @@ type SparkRDD struct {
 	} `json:"partitions"`
 }
 
-/*
-	@TODO: Support non-Databricks Spark deployments
-func InitPipelines(i *integration.LabsIntegration) error {
-	sparkContextUrls := viper.GetStringSlice("spark.contexts")
-	if len(sparkContextUrls) == 0 {
-		return fmt.Errorf("no spark context urls specified")
-	}
-
-	for _, sparkContextUrl := range sparkContextUrls {
-		err := InitPipelinesForContext(
-			i,
-			sparkContextUrl,
-			nil,
-			nil,
-		)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-*/
-
 func InitPipelines(
+	ctx context.Context,
+	i *integration.LabsIntegration,
+	tags map[string]string,
+) error {
+	// Get the web UI URL
+	webUiUrl := viper.GetString("spark.webUiUrl")
+	if webUiUrl == "" {
+		// default to localhost:4040
+		webUiUrl = "http://localhost:4040"
+	}
+
+	// @TODO: support authentication?
+
+	client := NewNativeSparkApiClient(
+		webUiUrl,
+		nil,
+	)
+
+	// Initialize spark pipelines
+	log.Debugf("initializing Spark pipeline with spark web UI URL %s", webUiUrl)
+
+	return InitPipelinesWithClient(
+		i,
+		client,
+		viper.GetString("spark.metricPrefix"),
+		tags,
+	)
+}
+
+func InitPipelinesWithClient(
 	i *integration.LabsIntegration,
 	sparkApiClient SparkApiClient,
+	metricPrefix string,
 	tags map[string]string,
 ) error {
 	// Create the newrelic exporter
@@ -322,6 +333,7 @@ func InitPipelines(
 		i,
 		mp,
 		sparkApiClient,
+		metricPrefix,
 		tags,
 	)
 	if err != nil {
@@ -337,12 +349,13 @@ func setupReceivers(
 	i *integration.LabsIntegration,
 	mp *pipeline.MetricsPipeline,
 	client SparkApiClient,
+	metricPrefix string,
 	tags map[string]string,
 ) error {
 	sparkReceiver := NewSparkMetricsReceiver(
 		i,
 		client,
-		viper.GetString("spark.metricPrefix"),
+		metricPrefix,
 		tags,
 	)
 

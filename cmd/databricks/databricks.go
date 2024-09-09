@@ -2,9 +2,9 @@ package main
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/newrelic-experimental/newrelic-databricks-integration/internal/databricks"
+	"github.com/newrelic-experimental/newrelic-databricks-integration/internal/spark"
 	"github.com/newrelic/newrelic-labs-sdk/v2/pkg/integration"
 	"github.com/newrelic/newrelic-labs-sdk/v2/pkg/integration/log"
 	"github.com/spf13/viper"
@@ -31,25 +31,16 @@ func main() {
 	)
 	fatalIfErr(err)
 
-	mode := viper.GetString("mode")
-	if mode == "" {
-		mode = "databricks"
+	tags := viper.GetStringMapString("tags")
+
+	if viper.IsSet("databricks") {
+		err = databricks.InitPipelines(ctx, i, tags)
+		fatalIfErr(err)
 	}
 
-	switch mode {
-	case "databricks":
-		err = databricks.InitPipelines(ctx, i)
+	if viper.IsSet("spark") {
+		err = spark.InitPipelines(ctx, i, tags)
 		fatalIfErr(err)
-
-	// @TODO: support any spark context
-	//case "spark":
-	//	err = spark.InitPipelines(i)
-	//	fatalIfErr(err)
-
-	// @TODO: support other cluster providers/modes like yarn/k8s
-
-	default:
-		fatalIfErr(fmt.Errorf("unrecognized mode %s", mode))
 	}
 
 	// Run the integration
