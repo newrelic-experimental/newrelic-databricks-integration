@@ -18,6 +18,10 @@ databricks:
   oauthClientSecret: [YOUR_DATABRICKS_SERVICE_PRINCIPAL_OAUTH_CLIENT_SECRET]
   sparkMetrics: true
   sparkMetricPrefix: spark.
+  sparkClusterSources:
+    ui: true
+    job: true
+    api: true
   # RESERVED FOR FUTURE USE
   #accountHost: https://accounts.cloud.databricks.com
 spark:

@@ -2,17 +2,14 @@ package databricks
 
 import (
 	"context"
-	"fmt"
-	"maps"
-	"strings"
 
 	databricksSdk "github.com/databricks/databricks-sdk-go"
 	databricksSdkConfig "github.com/databricks/databricks-sdk-go/config"
-	databricksSdkCompute "github.com/databricks/databricks-sdk-go/service/compute"
-	"github.com/newrelic-experimental/newrelic-databricks-integration/internal/spark"
 
 	"github.com/newrelic/newrelic-labs-sdk/v2/pkg/integration"
+	"github.com/newrelic/newrelic-labs-sdk/v2/pkg/integration/exporters"
 	"github.com/newrelic/newrelic-labs-sdk/v2/pkg/integration/log"
+	"github.com/newrelic/newrelic-labs-sdk/v2/pkg/integration/pipeline"
 	"github.com/spf13/viper"
 )
 
@@ -50,71 +47,28 @@ func InitPipelines(
 	}
 
 	if sparkMetrics {
-		all, err := w.Clusters.ListAll(
-			ctx,
-			databricksSdkCompute.ListClustersRequest{},
+		// Create the newrelic exporter
+		newRelicExporter := exporters.NewNewRelicExporter(
+			"newrelic-api",
+			i.Name,
+			i.Id,
+			i.NrClient,
+			i.GetLicenseKey(),
+			i.GetRegion(),
+			i.DryRun,
 		)
-		if err != nil {
-		  return fmt.Errorf("failed to list clusters: %w", err)
-		}
 
-		for _, c := range all {
-			if c.State != databricksSdkCompute.StateRunning {
-				log.Debugf(
-					"skipping cluster %s because it is not running",
-					c.ClusterName,
-				)
-				continue
-			}
+		// Create a metrics pipeline
+		mp := pipeline.NewMetricsPipeline()
+		mp.AddExporter(newRelicExporter)
 
-			if c.ClusterSource == databricksSdkCompute.ClusterSourceUi ||
-				c.ClusterSource == databricksSdkCompute.ClusterSourceApi {
+		// Create the receiver
+		databricksSparkReceiver := NewDatabricksSparkReceiver(w, tags)
+		mp.AddReceiver(databricksSparkReceiver)
 
-				/// resolve the spark context UI URL for the cluster
-				log.Debugf(
-					"resolving Spark context UI URL for cluster %s",
-					c.ClusterName,
-				)
-				sparkContextUiPath, err := getSparkContextUiPathForCluster(
-					ctx,
-					w,
-					&c,
-				)
-				if err != nil {
-					return err
-				}
+		log.Debugf("initializing Databricks Spark pipeline")
 
-				databricksSparkApiClient, err := NewDatabricksSparkApiClient(
-					sparkContextUiPath,
-					w,
-				)
-				if err != nil {
-					return err
-				}
-
-				// Initialize spark pipelines
-				log.Debugf(
-					"initializing Spark pipeline for cluster %s with spark context UI URL %s",
-					c.ClusterName,
-					sparkContextUiPath,
-				)
-
-				newTags := maps.Clone(tags)
-				newTags["clusterProvider"] = "databricks"
-				newTags["databricksClusterId"] = c.ClusterId
-				newTags["databricksClusterName"] = c.ClusterName
-
-				err = spark.InitPipelinesWithClient(
-					i,
-					databricksSparkApiClient,
-					viper.GetString("databricks.sparkMetricPrefix"),
-					newTags,
-				)
-				if err != nil {
-					return err
-				}
-			}
-		}
+		i.AddPipeline(mp)
 	}
 
 	// @TODO: initialize databricks pipelines here
@@ -181,80 +135,4 @@ func configureAuth(config *databricksSdk.Config) error {
 	 */
 
 	return nil
-}
-
-func getSparkContextUiPathForCluster(
-	ctx context.Context,
-	w *databricksSdk.WorkspaceClient,
-	c *databricksSdkCompute.ClusterDetails,
-) (string, error) {
-	// @see https://databrickslabs.github.io/overwatch/assets/_index/realtime_helpers.html
-
-	clusterId := c.ClusterId
-
-	waitContextStatus, err := w.CommandExecution.Create(
-		ctx,
-		databricksSdkCompute.CreateContext{
-			ClusterId: clusterId,
-			Language: databricksSdkCompute.LanguagePython,
-		},
-	)
-	if err != nil {
-		return "", err
-	}
-
-	execContext, err := waitContextStatus.Get()
-	if err != nil {
-		return "", err
-	}
-
-	cmd := databricksSdkCompute.Command{
-		ClusterId: clusterId,
-		Command: `
-		print(f'{spark.conf.get("spark.databricks.clusterUsageTags.clusterOwnerOrgId")}')
-		print(f'{spark.conf.get("spark.ui.port")}')
-		`,
-		ContextId: execContext.Id,
-		Language: databricksSdkCompute.LanguagePython,
-	}
-
-	waitCommandStatus, err := w.CommandExecution.Execute(
-		ctx,
-		cmd,
-	)
-	if err != nil {
-		return "", err
-	}
-
-	resp, err := waitCommandStatus.Get()
-	if err != nil {
-		return "", err
-	}
-
-	data, ok := resp.Results.Data.(string);
-	if !ok {
-		return "", fmt.Errorf("command result is not a string value")
-	}
-
-	vals := strings.Split(data, "\n")
-	if len(vals) != 2 {
-		return "", fmt.Errorf("invalid command result")
-	}
-
-	if vals[0] == "" || vals[1] == "" {
-		return "", fmt.Errorf("empty command results")
-	}
-
-	// @TODO: I think this URL pattern only works for multi-tenant accounts.
-	// We may need a flag for single tenant accounts and use the o/0 form
-	// shown on the overwatch site.
-
-	url := fmt.Sprintf(
-		"/driver-proxy-api/o/%s/%s/%s",
-		vals[0],
-		clusterId,
-		vals[1],
-	)
-
-	return url, nil
 }
