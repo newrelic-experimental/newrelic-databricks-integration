@@ -45,7 +45,23 @@ func (s *SparkMetricsReceiver) PollMetrics(
 	ctx context.Context,
 	writer chan <- model.Metric,
 ) error {
-	sparkApps, err := s.client.GetApplications(ctx)
+	return PollMetrics(
+		ctx,
+		s.client,
+		s.metricPrefix,
+		s.tags,
+		writer,
+	)
+}
+
+func PollMetrics(
+	ctx context.Context,
+	client SparkApiClient,
+	metricPrefix string,
+	tags map[string]string,
+	writer chan <- model.Metric,
+) error {
+	sparkApps, err := client.GetApplications(ctx)
 	if err != nil {
 		return err
 	}
@@ -60,10 +76,10 @@ func (s *SparkMetricsReceiver) PollMetrics(
 
 			err := collectSparkAppExecutorMetrics(
 				ctx,
-				s.client,
+				client,
 				app,
-				s.metricPrefix,
-				s.tags,
+				metricPrefix,
+				tags,
 				writer,
 			)
 			if err != nil {
@@ -72,10 +88,10 @@ func (s *SparkMetricsReceiver) PollMetrics(
 
 			err = collectSparkAppJobMetrics(
 				ctx,
-				s.client,
+				client,
 				app,
-				s.metricPrefix,
-				s.tags,
+				metricPrefix,
+				tags,
 				writer,
 			)
 			if err != nil {
@@ -84,10 +100,10 @@ func (s *SparkMetricsReceiver) PollMetrics(
 
 			err = collectSparkAppStageMetrics(
 				ctx,
-				s.client,
+				client,
 				app,
-				s.metricPrefix,
-				s.tags,
+				metricPrefix,
+				tags,
 				writer,
 			)
 			if err != nil {
@@ -96,10 +112,10 @@ func (s *SparkMetricsReceiver) PollMetrics(
 
 			err = collectSparkAppRDDMetrics(
 				ctx,
-				s.client,
+				client,
 				app,
-				s.metricPrefix,
-				s.tags,
+				metricPrefix,
+				tags,
 				writer,
 			)
 			if err != nil {

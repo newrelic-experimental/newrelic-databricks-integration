@@ -292,7 +292,7 @@ func InitPipelines(
 
 	// @TODO: support authentication?
 
-	client := NewNativeSparkApiClient(
+	sparkApiClient := NewNativeSparkApiClient(
 		webUiUrl,
 		nil,
 	)
@@ -300,20 +300,6 @@ func InitPipelines(
 	// Initialize spark pipelines
 	log.Debugf("initializing Spark pipeline with spark web UI URL %s", webUiUrl)
 
-	return InitPipelinesWithClient(
-		i,
-		client,
-		viper.GetString("spark.metricPrefix"),
-		tags,
-	)
-}
-
-func InitPipelinesWithClient(
-	i *integration.LabsIntegration,
-	sparkApiClient SparkApiClient,
-	metricPrefix string,
-	tags map[string]string,
-) error {
 	// Create the newrelic exporter
 	newRelicExporter := exporters.NewNewRelicExporter(
 		"newrelic-api",
@@ -333,7 +319,7 @@ func InitPipelinesWithClient(
 		i,
 		mp,
 		sparkApiClient,
-		metricPrefix,
+		viper.GetString("spark.metricPrefix"),
 		tags,
 	)
 	if err != nil {

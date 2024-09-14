@@ -34,7 +34,8 @@ Databricks) and/or Spark telemetry from any Spark deployment. See the
       * [General configuration](#general-configuration)
       * [Pipeline configuration](#pipeline-configuration)
       * [Log configuration](#log-configuration)
-      * [Query configuration](#query-configuration)
+      * [Databricks configuration](#databricks-configuration)
+      * [Spark configuration](#spark-configuration)
    * [Authentication](#authentication)
 * [Building](#building)
    * [Coding Conventions](#coding-conventions)
@@ -497,6 +498,59 @@ collector. This includes the case when the integration is
 [deployed directly on the driver node of a Databricks cluster](#deploy-the-integration-on-the-driver-node-of-a-databricks-cluster)
 using the the provided [init script](./init/cluster_init_integration.sh)
 since Spark telemetry is collected by the Spark collector in this scenario.
+
+###### `sparkClusterSources`
+
+| Description | Valid Values | Required | Default |
+| --- | --- | --- | --- |
+| The root node for the [Databricks cluster source configuration](#databricks-cluster-source-configuration) | YAML Mapping | N | N/a |
+
+The mechanism used to create a cluster is referred to as a cluster "source". The
+Databricks collector supports collecting Spark telemetry from all-purpose
+clusters created via the UI or API and from job clusters created via the
+Databricks Jobs Scheduler. This element groups together the flags used to
+individually [enable or disable](#databricks-cluster-source-configuration) the
+cluster sources from which the Databricks collector will collect Spark
+telemetry.
+
+##### Databricks cluster source configuration
+
+###### `ui`
+
+| Description | Valid Values | Required | Default |
+| --- | --- | --- | --- |
+| Flag to enable automatic collection of Spark telemetry from all-purpose clusters created via the UI | `true` / `false` | N | `true` |
+
+By default, when the Databricks collector is enabled, it will automatically
+collect Spark telemetry from all all-purpose clusters created via the UI.
+
+This flag can be used to disable the collection of Spark telemetry from
+all-purpose clusters created via the UI.
+
+###### `job`
+
+| Description | Valid Values | Required | Default |
+| --- | --- | --- | --- |
+| Flag to enable automatic collection of Spark telemetry from job clusters created via the Databricks Jobs Scheduler | `true` / `false` | N | `true` |
+
+By default, when the Databricks collector is enabled, it will automatically
+collect Spark telemetry from job clusters created by the Databricks Jobs
+Scheduler.
+
+This flag can be used to disable the collection of Spark telemetry from job
+clusters created via the Databricks Jobs Scheduler.
+
+###### `api`
+
+| Description | Valid Values | Required | Default |
+| --- | --- | --- | --- |
+| Flag to enable automatic collection of Spark telemetry from all-purpose clusters created via the [Databricks ReST API](https://docs.databricks.com/api/workspace/introduction) | `true` / `false` | N | `true` |
+
+By default, when the Databricks collector is enabled, it will automatically
+collect Spark telemetry from all-purpose clusters created via the [Databricks ReST API](https://docs.databricks.com/api/workspace/introduction).
+
+This flag can be used to disable the collection of Spark telemetry from
+all-purpose clusters created via the [Databricks ReST API](https://docs.databricks.com/api/workspace/introduction).
 
 ##### Spark configuration
 
