@@ -66,7 +66,7 @@ func InitPipelines(
 		databricksSparkReceiver := NewDatabricksSparkReceiver(w, tags)
 		mp.AddReceiver(databricksSparkReceiver)
 
-		log.Debugf("initializing Spark pipeline")
+		log.Debugf("initializing Databricks Spark pipeline")
 
 		i.AddPipeline(mp)
 	}
