@@ -153,6 +153,8 @@ func makeRequest(
 		return err
 	}
 
+	defer in.Close()
+
 	log.Debugf("decoding spark JSON response for URL %s", url)
 
 	dec := json.NewDecoder(in)

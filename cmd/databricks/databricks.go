@@ -28,6 +28,7 @@ func main() {
 		integration.WithLicenseKey(),
 		integration.WithApiKey(),
 		integration.WithEvents(ctx),
+		integration.WithLastUpdate(),
 	)
 	fatalIfErr(err)
 

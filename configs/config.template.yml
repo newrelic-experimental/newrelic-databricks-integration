@@ -13,17 +13,24 @@ log:
   fileName: trace.log
 databricks:
   workspaceHost: [YOUR_DATABRICKS_WORKSPACE_INSTANCE_NAME]
+  accountHost: [YOUR_DATABRICKS_ACCOUNTS_CONSOLE_HOST_NAME]
+  accountId: [YOUR_DATABRICKS_ACCOUNT_ID]
   accessToken: [YOUR_DATABRICKS_PERSONAL_ACCESS_TOKEN]
   oauthClientId: [YOUR_DATABRICKS_SERVICE_PRINCIPAL_OAUTH_CLIENT_ID]
   oauthClientSecret: [YOUR_DATABRICKS_SERVICE_PRINCIPAL_OAUTH_CLIENT_SECRET]
-  sparkMetrics: true
-  sparkMetricPrefix: spark.
-  sparkClusterSources:
-    ui: true
-    job: true
-    api: true
-  # RESERVED FOR FUTURE USE
-  #accountHost: https://accounts.cloud.databricks.com
+  sqlStatementTimeout: 30
+  spark:
+    enabled: true
+    metricPrefix: spark.
+    clusterSources:
+      ui: true
+      job: true
+      api: true
+  usage:
+    enabled: true
+    warehouseId: [YOUR_DATABRICKS_WAREHOUSE_ID]
+    includeIdentityMetadata: false
+    runTime: 02:00:00
 spark:
   webUiUrl: http://localhost:4040
   metricPrefix: spark.

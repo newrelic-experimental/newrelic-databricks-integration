@@ -10,6 +10,7 @@ import (
 	databricksSdkCompute "github.com/databricks/databricks-sdk-go/service/compute"
 	"github.com/newrelic-experimental/newrelic-databricks-integration/internal/spark"
 	"github.com/newrelic/newrelic-labs-sdk/v2/pkg/integration/log"
+
 	"github.com/newrelic/newrelic-labs-sdk/v2/pkg/integration/model"
 	"github.com/spf13/viper"
 )
@@ -44,19 +45,23 @@ func (d *DatabricksSparkReceiver) PollMetrics(
 
 	uiEnabled := true
 	if viper.IsSet("databricks.sparkClusterSources.ui") {
-		uiEnabled = viper.GetBool(
-			"databricks.sparkClusterSources.ui",
-		)
+		uiEnabled = viper.GetBool("databricks.sparkClusterSources.ui")
+	} else if viper.IsSet("databricks.spark.clusterSources.ui")  {
+		uiEnabled = viper.GetBool("databricks.spark.clusterSources.ui")
 	}
 
 	jobEnabled := true
 	if viper.IsSet("databricks.sparkClusterSources.job") {
 		jobEnabled = viper.GetBool("databricks.sparkClusterSources.job")
+	} else if viper.IsSet("databricks.spark.clusterSources.job")  {
+		jobEnabled = viper.GetBool("databricks.spark.clusterSources.job")
 	}
 
 	apiEnabled := true
 	if viper.IsSet("databricks.sparkClusterSources.api") {
 		apiEnabled = viper.GetBool("databricks.sparkClusterSources.api")
+	} else if viper.IsSet("databricks.spark.clusterSources.api")  {
+		apiEnabled = viper.GetBool("databricks.spark.clusterSources.api")
 	}
 
 	for _, c := range all {
@@ -132,10 +137,17 @@ func (d *DatabricksSparkReceiver) PollMetrics(
 		newTags["databricksClusterId"] = c.ClusterId
 		newTags["databricksClusterName"] = c.ClusterName
 
+		metricPrefix := ""
+		if viper.IsSet("databricks.sparkMetricPrefix") {
+			metricPrefix = viper.GetString("databricks.sparkMetricPrefix")
+		} else if viper.IsSet("databricks.spark.metricPrefix") {
+			metricPrefix = viper.GetString("databricks.spark.metricPrefix")
+		}
+
 		err = spark.PollMetrics(
 			ctx,
 			databricksSparkApiClient,
-			viper.GetString("databricks.sparkMetricPrefix"),
+			metricPrefix,
 			newTags,
 			writer,
 		)
@@ -143,6 +155,7 @@ func (d *DatabricksSparkReceiver) PollMetrics(
 			return err
 		}
 	}
+
 	return nil
 }
 
