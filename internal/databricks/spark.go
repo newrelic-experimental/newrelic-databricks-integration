@@ -35,6 +35,9 @@ func (d *DatabricksSparkReceiver) PollMetrics(
 	ctx context.Context,
 	writer chan <- model.Metric,
 ) error {
+	log.Debugf("polling for Spark metrics")
+
+	log.Debugf("listing all clusters")
 	all, err := d.w.Clusters.ListAll(
 		ctx,
 		databricksSdkCompute.ListClustersRequest{},
@@ -168,6 +171,7 @@ func getSparkContextUiPathForCluster(
 
 	clusterId := c.ClusterId
 
+	log.Debugf("creating execution context for cluster %s", clusterId)
 	waitContextStatus, err := w.CommandExecution.Create(
 		ctx,
 		databricksSdkCompute.CreateContext{
@@ -194,6 +198,10 @@ func getSparkContextUiPathForCluster(
 		Language: databricksSdkCompute.LanguagePython,
 	}
 
+	log.Debugf(
+		"executing context UI discovery script for cluster %s",
+		clusterId,
+	)
 	waitCommandStatus, err := w.CommandExecution.Execute(
 		ctx,
 		cmd,
