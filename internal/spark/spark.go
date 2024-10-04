@@ -312,7 +312,7 @@ func InitPipelines(
 	)
 
 	// Create a metrics pipeline
-	mp := pipeline.NewMetricsPipeline()
+	mp := pipeline.NewMetricsPipeline("spark-metrics-pipeline")
 	mp.AddExporter(newRelicExporter)
 
 	err := setupReceivers(
@@ -326,7 +326,7 @@ func InitPipelines(
 		return err
 	}
 
-	i.AddPipeline(mp)
+	i.AddComponent(mp)
 
 	return nil
 }
