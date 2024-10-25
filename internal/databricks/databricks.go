@@ -65,11 +65,16 @@ func InitPipelines(
 	}
 
 	if collectUsageData {
-		// We need an account client to resolve workspace IDs > names
+		// Create an account client
+		// We need an account client to resolve workspace/cluster/warehouse IDs
+		// to names
 		a, err := getAccountClient()
 		if err != nil {
 			return err
 		}
+
+		// Initialize caches
+		initInfoByIdCaches(a)
 
 		// We need a sql warehouse ID to run the SQL queries
 		warehouseId := viper.GetString("databricks.usage.warehouseId")
@@ -94,10 +99,37 @@ func InitPipelines(
 			timeOfDay.Hour(),
 		)
 
-		usageReceiver := NewDatabricksUsageReceiver(
+		includeIdentityMetadata := viper.GetBool(
+			"databricks.usage.includeIdentityMetadata",
+		)
+
+		queries := []*query{
+			&gBillingUsageQuery,
+		}
+
+		for i := 0; i < len(gOptionalUsageQueries); i += 1 {
+			query := gOptionalUsageQueries[i]
+			addQuery := true
+			key := "databricks.usage.optionalQueries." + query.id
+
+			if viper.IsSet(key) {
+				addQuery = viper.GetBool(key)
+			}
+
+			if addQuery {
+				queries = append(queries, &query)
+			}
+		}
+
+		usageReceiver := NewDatabricksQueryReceiver(
+			"databricks-usage-receiver",
 			w,
 			a,
 			warehouseId,
+			"system",
+			"billing",
+			includeIdentityMetadata,
+			queries,
 		)
 
 		ep := pipeline.NewEventsPipeline("databricks-usage-pipeline")
