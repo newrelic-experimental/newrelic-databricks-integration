@@ -20,19 +20,26 @@ func executeStatementOnWarehouse(
 	ctx context.Context,
 	w *databricksSdk.WorkspaceClient,
 	warehouseId string,
+	defaultCatalog string,
+	defaultSchema string,
 	stmt string,
 ) ([][]string, error) {
 	// @todo: pass catalog/schema as parameters instead of hard coding
 
 	req := databricksSql.ExecuteStatementRequest{
 		WarehouseId: warehouseId,
-		Catalog: "system",
-		Schema: "billing",
+		Catalog: defaultCatalog,
+		Schema: defaultSchema,
 		Statement: stmt,
 		WaitTimeout: "0s",
 	}
 
-	log.Debugf("executing statement %s", stmt)
+	log.Debugf(
+		"executing statement %s for catalog %s and schema %s",
+		stmt,
+		defaultCatalog,
+		defaultSchema,
+	)
 
 	execResp, err := w.StatementExecution.ExecuteStatement(ctx, req)
 	if err != nil {

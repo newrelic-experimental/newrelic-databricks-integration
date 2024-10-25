@@ -37,7 +37,7 @@ Databricks) and/or Spark telemetry from any Spark deployment. See the
       * [Databricks configuration](#databricks-configuration)
       * [Spark configuration](#spark-configuration)
    * [Authentication](#authentication)
-   * [Billable Usage & List Pricing Data](#billable-usage--list-pricing-data)
+   * [Consumption & Cost Data](#consumption--cost-data)
 * [Building](#building)
    * [Coding Conventions](#coding-conventions)
    * [Local Development](#local-development)
@@ -173,14 +173,12 @@ The New Relic Databricks integration supports the following capabilities.
   The New Relic Databricks integration can also collect Spark telemetry from any
   non-Databricks Spark deployment.
 
-* Collect Databricks billable usage and list pricing data
+* Collect Databricks consumption and cost data
 
-  The New Relic Databricks integration can collect Databricks
-  [billable usage](https://docs.databricks.com/en/admin/system-tables/billing.html)
-  and [list pricing](https://docs.databricks.com/en/admin/system-tables/pricing.html)
+  The New Relic Databricks integration can collect consumption and cost related
   data from the Databricks [system tables](https://docs.databricks.com/en/admin/system-tables/index.html).
-  This data can be used to show basic Databricks DBU consumption and cost
-  metrics directly within New Relic.
+  This data can be used to show Databricks DBU consumption metrics and estimated
+  Databricks costs directly within New Relic.
 
 ## Usage
 
@@ -453,8 +451,8 @@ that unlike the value of [`workspaceHost`](#workspacehost), the value of this
 parameter _must_ include the `https://` prefix, e.g.
 `https://accounts.cloud.databricks.com`.
 
-This parameter is required when the collection of Databricks billable usage and
-list pricing data is [enabled](#databricks-usage-enabled).
+This parameter is required when the collection of Databricks [consumption and cost data](#consumption--cost-data)
+data is [enabled](#databricks-usage-enabled).
 
 The account host can also be specified using the `DATABRICKS_HOST`
 environment variable.
@@ -478,8 +476,8 @@ This parameter specifies the Databricks account ID. This is used by the
 integration when constructing the URLs for account-level
 [ReST API](https://docs.databricks.com/api/workspace/introduction) calls.
 
-This parameter is required when the collection of Databricks billable usage and
-list pricing data is [enabled](#databricks-usage-enabled).
+This parameter is required when the collection of Databricks [consumption and cost data](#consumption--cost-data)
+data is [enabled](#databricks-usage-enabled).
 
 ###### `accessToken`
 
@@ -498,8 +496,9 @@ field in a Databricks [configuration profile](https://docs.databricks.com/en/dev
 See the [authentication section](#authentication) for more details.
 
 **NOTE:** Databricks personal access tokens can only be used to collect data
-at the workspace level. To collect account level data such as
-[billable usage and list pricing data](#billable-usage--list-pricing-data),
+at the workspace level. They can not be used to collect account-level data using
+the account-level [ReST APIs](https://docs.databricks.com/api/workspace/introduction).
+To collect account level data such as [consumption and cost data](#consumption--cost-data),
 OAuth authentication must be used instead.
 
 ###### `oauthClientId`
@@ -596,7 +595,7 @@ the configuration parameters [`sparkMetrics`](#sparkmetrics),
 
 This element groups together the configuration parameters to [configure](#databricks-usage-configuration)
 the Databricks collector settings related to the collection of
-[billable usage and list pricing data](#billable-usage--list-pricing-data).
+[consumption and cost data](#consumption--cost-data).
 
 ##### Databricks `spark` configuration
 
@@ -701,23 +700,23 @@ all-purpose clusters created via the [Databricks ReST API](https://docs.databric
 
 The Databricks usage configuration parameters are used to configure Databricks
 collector settings related to the collection of Databricks
-[billable usage and list pricing data](#billable-usage--list-pricing-data).
+[consumption and cost data](#consumption--cost-data).
 
 ###### Databricks Usage `enabled`
 
 | Description | Valid Values | Required | Default |
 | --- | --- | --- | --- |
-| Flag to enable automatic collection of billable usage and list pricing data | `true` / `false` | N | `true` |
+| Flag to enable automatic collection of consumption and cost data | `true` / `false` | N | `true` |
 
 By default, when the Databricks collector is enabled, it will automatically
-collect [billable usage and list pricing data](#billable-usage--list-pricing-data).
+collect [consumption and cost data](#consumption--cost-data).
 
-This flag can be used to disable the collection of billable usage and list
-pricing data by the Databricks collector. This may be useful when running
-multiple instances of the New Relic Databricks integration. In this scenario,
-Databricks billable usage and list pricing data collection should _only_ be
-enabled on a single instance. Otherwise, billable usage data will be recorded
-more than once in New Relic, affecting consumption and cost calculations.
+This flag can be used to disable the collection of consumption and cost data by
+the Databricks collector. This may be useful when running multiple instances of
+the New Relic Databricks integration. In this scenario, Databricks consumption
+and cost data collection should _only_ be enabled on a single instance.
+Otherwise, this data will be recorded more than once in New Relic, affecting
+consumption and cost calculations.
 
 ###### `warehouseId`
 
@@ -726,26 +725,26 @@ more than once in New Relic, affecting consumption and cost calculations.
 | ID of a SQL warehouse on which to run usage-related SQL statements | string | Y | N/a |
 
 The ID of a SQL warehouse on which to run the SQL statements used to collect
-Databricks [billable usage and list pricing data](#billable-usage--list-pricing-data).
+Databricks [consumption and cost data](#consumption--cost-data).
 
 This parameter is required when the collection of Databricks
-[billable usage and list pricing data](#billable-usage--list-pricing-data) is
-[enabled](#databricks-usage-enabled).
+[consumption and cost data](#consumption--cost-data) is [enabled](#databricks-usage-enabled).
 
 ###### `includeIdentityMetadata`
 
 | Description | Valid Values | Required | Default |
 | --- | --- | --- | --- |
-| Flag to enable inclusion of identity related metadata in billable usage data | `true` / `false` | N | `false` |
+| Flag to enable inclusion of identity related metadata in consumption and cost data | `true` / `false` | N | `false` |
 
-When the collection of Databricks [billable usage and list pricing data](#billable-usage--list-pricing-data)
+When the collection of Databricks [consumption and cost data](#consumption--cost-data)
 is [enabled](#databricks-usage-enabled), the Databricks collector can include
-several pieces of identifying information along with the billable usage data.
+several pieces of identifying information along with the consumption and cost
+data.
 
-By default, when the collection of Databricks [billable usage and list pricing](#billable-usage--list-pricing-data)
-data is [enabled](#databricks-usage-enabled), the Databricks collector will
-_not_ collect such data as it may be personally identifiable. This flag can be
-used to enable the inclusion of the identifying information.
+By default, when the collection of Databricks [consumption and cost data](#consumption--cost-data)
+is [enabled](#databricks-usage-enabled), the Databricks collector will _not_
+collect such data as it may be personally identifiable. This flag can be used to
+enable the inclusion of the identifying information.
 
 When enabled, the following values are included.
 
@@ -758,6 +757,8 @@ When enabled, the following values are included.
   all-purpose and job compute configured for [single-user access mode](https://docs.databricks.com/en/compute/configure.html#access-mode).
 * The identity of the warehouse creator for each usage record for billable usage
   attributed to SQL warehouse compute.
+* The identity of the user or service principal used to run jobs for each query
+  result collected by [job cost data](#job-costs) queries.
 
 ###### `runTime`
 
@@ -766,15 +767,51 @@ When enabled, the following values are included.
 | Time of day (as `HH:mm:ss`) at which to run usage data collection | string with format `HH:mm:ss` | N | `02:00:00` |
 
 This parameter specifies the time of day at which the collection of
-[billable usage and list pricing data](#billable-usage--list-pricing-data)
-occur. The value must be of the form `HH:mm:ss` where `HH` is the `0`-padded
-24-hour clock hour (`00` - `23`), `mm` is the `0`-padded minute (`00` - `59`)
-and `ss` is the `0`-padded second (`00` - `59`). For example, `09:00:00` is the
-time 9:00 AM and `23:30:00` is the time 11:30 PM.
+[consumption and cost data](#consumption--cost-data) occur. The value must be of
+the form `HH:mm:ss` where `HH` is the `0`-padded 24-hour clock hour
+(`00` - `23`), `mm` is the `0`-padded minute (`00` - `59`) and `ss` is the
+`0`-padded second (`00` - `59`). For example, `09:00:00` is the time 9:00 AM and
+`23:30:00` is the time 11:30 PM.
 
 The time will _always_ be interpreted according to the UTC time zone. The time
 zone can not be configured. For example, to specify that the integration should
 be run at 2:00 AM EST (-0500), the value `07:00:00` should be specified.
+
+###### `optionalQueries`
+
+| Description | Valid Values | Required | Default |
+| --- | --- | --- | --- |
+| The root node for the set of flags used to selectively enable or disable optional usage queries | YAML Mapping | N | N/a |
+
+When the collection of Databricks [consumption and cost data](#consumption--cost-data)
+is [enabled](#databricks-usage-enabled), the Databricks collector will always
+collect [billable usage data](#billable-usage-data) and [list pricing data](#list-pricing-data)
+on every run. In addition, by default, the Databricks collector will also run
+all [job cost](#job-costs) queries on every run. However, the latter behavior
+can be configured using a set of flags specified with this configuration
+property to selectively enable or disable the [job cost](#job-costs) queries.
+Each flag is specified using a property with the query ID as the name of the
+property and `true` or `false` as the value of the property.The following flags
+are supported.
+
+* [`jobs_cost_list_cost_per_job_run`](#list-cost-per-job-run)
+* [`jobs_cost_list_cost_per_job`](#list-cost-per-job)
+* [`jobs_cost_frequent_failures`](#list-cost-of-failed-job-runs-for-jobs-with-frequent-failures)
+* [`jobs_cost_most_retries`](#list-cost-of-repaired-job-runs-for-jobs-with-frequent-repairs)
+
+For example, to enable the [list cost per job run](#list-cost-per-job-run) query
+and the [list cost per job](#list-cost-per-job) query but disable the
+[list cost of failed job runs for jobs with frequent failures](#list-cost-of-failed-job-runs-for-jobs-with-frequent-failures) query
+and the [list cost of repaired job runs for jobs with frequent repairs](#list-cost-of-repaired-job-runs-for-jobs-with-frequent-repairs) query,
+the following configuration would be specified.
+
+```yaml
+  optionalQueries:
+    jobs_cost_list_cost_per_job_run: true
+    jobs_cost_list_cost_per_job: true
+    jobs_cost_frequent_failures: false
+    jobs_cost_most_retries: false
+```
 
 ##### Spark configuration
 
@@ -835,8 +872,9 @@ For convenience purposes, the following parameters can be used in the
   will fail immediately if personal access token authentication fails.
 
   **NOTE:** Databricks personal access tokens can only be used to collect data
-  at the workspace level. To collect account level data such as
-  [billable usage and list pricing data](#billable-usage--list-pricing-data),
+  at the workspace level. They can not be used to collect account-level data
+  using the account-level [ReST APIs](https://docs.databricks.com/api/workspace/introduction).
+  To collect account level data such as [consumption and cost data](#consumption--cost-data),
   OAuth authentication must be used instead.
 - [`oauthClientId`](#oauthclientid) - When set, the integration will instruct
   the SDK to explicitly [use a service principal to authenticate with Databricks (OAuth M2M)](https://docs.databricks.com/en/dev-tools/auth/oauth-m2m.html).
@@ -854,36 +892,68 @@ For convenience purposes, the following parameters can be used in the
   in a Databricks [configuration profile](https://docs.databricks.com/en/dev-tools/auth/config-profiles.html)
   or the `DATABRICKS_CLIENT_SECRET` environment variable).
 
-### Billable Usage & List Pricing Data
+### Consumption & Cost Data
 
-The New Relic Databricks integration can collect Databricks
-[billable usage](https://docs.databricks.com/en/admin/system-tables/billing.html)
-and [list pricing](https://docs.databricks.com/en/admin/system-tables/pricing.html)
-data from the Databricks [system tables](https://docs.databricks.com/en/admin/system-tables/index.html).
-This data can be used to show basic Databricks DBU consumption and cost
-metrics directly within New Relic.
+The New Relic Databricks integration can collect Databricks consumption and cost
+related data from the Databricks [system tables](https://docs.databricks.com/en/admin/system-tables/index.html).
+This data can be used to show Databricks DBU consumption metrics and estimated
+Databricks costs directly within New Relic.
 
-When the [Databricks usage `enabled`](#databricks-usage-enabled) flag is set to
-`true`, the Databricks collector will import billable usage records from the
-[`system.billing.usage` table](https://docs.databricks.com/en/admin/system-tables/billing.html)
-and list pricing records from the
-[`system.billing.list_prices` table](https://docs.databricks.com/en/admin/system-tables/pricing.html)
-once a day at the time specified in the [`runTime`](#runtime) configuration
-parameter.
+This feature is enabled by setting the [Databricks usage `enabled`](#databricks-usage-enabled)
+flag to `true` in the [integration configuration](#configuration). When enabled,
+the Databricks collector will collect consumption and cost related data once a
+day at the time specified in the [`runTime`](#runtime) configuration parameter.
+The following information is collected on each run.
 
-**NOTE:** In order for the New Relic Databricks integration to collect billing
-usage and list pricing data, OAuth [authentication](#authentication) _must_ be
-used. This is required even when the integration is
-[deployed on the driver node of a Databricks cluster](#deploy-the-integration-on-the-driver-node-of-a-databricks-cluster)
-using the provided [init script](./init/cluster_init_integration.sh) because the
-billing usage and list pricing data can only be acquired using the account-level
-[ReST API](https://docs.databricks.com/api/workspace/introduction) calls.
+* Billable usage records from the [`system.billing.usage` table](https://docs.databricks.com/en/admin/system-tables/billing.html)
+* List pricing records from the [`system.billing.list_prices` table](https://docs.databricks.com/en/admin/system-tables/pricing.html)
+* List cost per job run of jobs run on jobs compute and serverless compute
+* List cost per job of jobs run on jobs compute and serverless compute
+* List cost of failed job runs for jobs with frequent failures run on jobs
+  compute and serverless compute
+* List cost of repair job runs for jobs with frequent repairs run on jobs
+  compute and serverless compute
+
+**NOTE:** Job cost data from jobs run on workspaces outside the region of the
+workspace containing the SQL Warehouse used to collect the consumption data
+(specified in the [`workspaceHost`](#workspacehost) configuration parameter)
+will not be returned by the queries used by the Databricks integration to
+collect Job cost data.
+
+#### Consumption and Cost Collection Requirements
+
+In order for the New Relic Databricks integration to collect consumption and
+cost related data from Databricks, there are several requirements.
+
+1. OAuth [authentication](#authentication) must be used. This is required even
+   when the integration is
+   [deployed on the driver node of a Databricks cluster](#deploy-the-integration-on-the-driver-node-of-a-databricks-cluster)
+   using the provided [init script](./init/cluster_init_integration.sh) because
+   the integration leverages account-level [ReST APIs](https://docs.databricks.com/api/workspace/introduction)
+   when collecting consumption and cost related data. These APIs can only be
+   accessed when OAuth [authentication](#authentication) is used.
+1. An [account ID](#accountid) and [account host](#accounthost) must be provided
+   since the account-level [ReST APIs](https://docs.databricks.com/api/workspace/introduction)
+   require them.
+1. The SQL [warehouse ID](#warehouseid) of a [SQL warehouse](https://docs.databricks.com/en/compute/sql-warehouse/index.html)
+   within the workspace associated with the configured [workspace host](#workspacehost)
+   must be specified. The Databricks SQL queries used to collect consumption and
+   cost related data from the Databricks [system tables](https://docs.databricks.com/en/admin/system-tables/index.html).
+   will be run against the specified SQL warehouse.
+1. As of v2.6.0, the Databricks integration leverages data that is stored in the
+   `system.lakeflow.jobs` table. As of 10/24/2024, this table is in public
+   preview. To access this table, the `lakeflow` schema must be enabled in your
+   `system` catalog. To enable the `lakeflow` schema, follow the instructions in
+   the Databricks documentation to [enable a system schema](https://docs.databricks.com/en/admin/system-tables/index.html#enable-a-system-schema)
+   using the metastore ID of the [Unity Catalog metastore](https://docs.databricks.com/en/data-governance/unity-catalog/index.html#metastores)
+   attached to the workspace associated with the configured [workspace host](#workspacehost)
+   and the schema name `lakeflow`.
 
 #### Billable Usage Data
 
-On each run, billable usage data is collected _for the previous day_. For each
-billable usage record, a corresponding record is created as a
-[New Relic event](https://docs.newrelic.com/docs/data-apis/understand-data/new-relic-data-types/#event-data)
+On each run, billable usage data is collected from the [`system.billing.usage` table](https://docs.databricks.com/en/admin/system-tables/billing.html)
+_for the previous day_. For each billable usage record, a corresponding record
+is created within New Relic as a [New Relic event](https://docs.newrelic.com/docs/data-apis/understand-data/new-relic-data-types/#event-data)
 with the event type `DatabricksUsage` and the following attributes.
 
 **NOTE:** Not every attribute is included in every event. For example, the
@@ -906,7 +976,6 @@ compute.
 | `usage_start_time` | The start time relevant to this usage record |
 | `usage_end_time` | The end time relevant to this usage record |
 | `usage_date` | Date of this usage record |
-| `custom_tags` | Tags applied by the users to this usage record. Includes compute resource tags and jobs tags. |
 | `usage_unit` | Unit this usage record is measured in |
 | `usage_quantity` | Number of units consumed for this usage record |
 | `record_type` | Whether the usage record is original, a retraction, or a restatement. See the section ["Analyze Correction Records"](https://docs.databricks.com/en/admin/system-tables/billing.html#analyze-correction-records) in the Databricks documentation for more details. |
@@ -925,7 +994,8 @@ compute.
 | `node_type` | The instance type of the compute resource associated with this usage record |
 | `job_id` | ID of the job associated with this usage record for serverless compute or jobs compute usage |
 | `job_run_id` | ID of the job run associated with this usage record for serverless compute or jobs compute usage |
-| `job_name` | User-given name of the job associated with this usage record for serverless compute or jobs compute usage |
+| `job_name` | Name of the job associated with this usage record for serverless compute or jobs compute usage. **NOTE:** This field will only contain a value for jobs run within a workspace in the same cloud region as the workspace containing the SQL warehouse used to collect the consumption and cost data (specified in [`workspaceHost`](#workspacehost)). |
+| `serverless_job_name` | User-given name of the job associated with this usage record for jobs run on serverless compute _only_ |
 | `notebook_id` | ID of the notebook associated with this usage record for serverless compute for notebook usage  |
 | `notebook_path` | Workspace storage path of the notebook associated with this usage for serverless compute for notebook usage |
 | `dlt_pipeline_id` | ID of the Delta Live Tables pipeline associated with this usage record |
@@ -943,10 +1013,17 @@ compute.
 | `is_photon` | Flag indicating if this usage record is associated with Photon usage: values include `true` or `false`, or `null` |
 | `serving_type` | Serving type associated with this usage record: values include `MODEL`, `GPU_MODEL`, `FOUNDATION_MODEL`, `FEATURE`, or `null` |
 
+In addition, all compute resource tags, jobs tags, and budget policy tags
+applied to this usage are added as event attributes. For jobs referenced in the
+`job_id` attribute of `JOBS` usage records, custom job tags are also included if
+the job was run within a workspace in the same cloud region as the workspace
+containing the SQL warehouse used to collect the consumption data (specified in
+the [`workspaceHost`](#workspacehost) configuration parameter).
+
 #### List Pricing Data
 
-On each run, list pricing data is gathered into a
-[New Relic lookup table](https://docs.newrelic.com/docs/logs/ui-data/lookup-tables-ui/)
+On each run, list pricing data is collected from the [`system.billing.list_prices` table](https://docs.databricks.com/en/admin/system-tables/pricing.html)
+and used to populate a [New Relic lookup table](https://docs.newrelic.com/docs/logs/ui-data/lookup-tables-ui/)
 named `DatabricksListPrices`. The entire lookup table is updated on each run.
 For each pricing record, this table will contain a corresponding row with the
 following columns.
@@ -956,16 +1033,126 @@ following columns.
 
 | Name | Description |
 |---|---|
-| account_id | ID of the account this pricing record was generated for |
-| price_start_time | The time the price in this pricing record became effective in UTC |
-| price_end_time | The time the price in this pricing record stopped being effective in UTC |
-| sku_name | Name of the SKU associated with this pricing record |
-| cloud | Name of the Cloud this pricing record is relevant for |
-| currency_code | The currency the price in this pricing record is expressed in |
-| usage_unit | The unit of measurement that is monetized in this pricing record |
-| list_price | A single price that can be used for simple long-term estimates |
-| promotional_price | A temporary promotional price that all customers get which could be used for cost estimation during the temporary period |
-| effective_list_price | The effective list price used for calculating the cost |
+| `account_id` | ID of the account this pricing record was generated for |
+| `price_start_time` | The time the price in this pricing record became effective in UTC |
+| `price_end_time` | The time the price in this pricing record stopped being effective in UTC |
+| `sku_name` | Name of the SKU associated with this pricing record |
+| `cloud` | Name of the Cloud this pricing record is relevant for |
+| `currency_code` | The currency the price in this pricing record is expressed in |
+| `usage_unit` | The unit of measurement that is monetized in this pricing record |
+| `list_price` | A single price that can be used for simple long-term estimates |
+
+Note that the `list_price` field contains a single price suitable for simple
+long-term estimates. It does not reflect any promotional pricing or custom price
+plans.
+
+#### Job Costs
+
+On each run, the Databricks collector runs a set of queries that leverage data
+in the [`system.billing.usage` table](https://docs.databricks.com/en/admin/system-tables/billing.html),
+the [`system.billing.list_prices` table](https://docs.databricks.com/en/admin/system-tables/pricing.html),
+and the [`system.lakeflow.jobs` table](https://docs.databricks.com/en/admin/system-tables/jobs.html)
+to collect job cost related data _for the previous day_. The set of queries that
+are run collect the following data.
+
+* [List cost per job run](#list-cost-per-job-run) of jobs run on jobs compute
+  and serverless compute
+* [List cost per job](#list-cost-per-job) of jobs run on jobs compute and
+  serverless compute
+* [List cost of failed job runs for jobs with frequent failures](#list-cost-of-failed-job-runs-for-jobs-with-frequent-failures)
+  run on jobs compute and serverless compute
+* [List cost of repaired job runs for jobs with frequent repairs](#list-cost-of-repaired-job-runs-for-jobs-with-frequent-repairs)
+  run on jobs compute and serverless compute
+
+By default, the Databricks integration runs each query on every run. This
+behavior can be configured using the [`optionalQueries`](#optionalqueries)
+configuration parameter to selectively enable or disable queries by query ID.
+
+For each query that is run, a [New Relic event](https://docs.newrelic.com/docs/data-apis/understand-data/new-relic-data-types/#event-data)
+with the event type `DatabricksJobCost` is created for each result row with one
+attribute for each column of data. In addition, each event includes a `query_id`
+attribute that contains the unique ID of the query that produced the data stored
+in the event. This ID can be used in [NRQL](https://docs.newrelic.com/docs/nrql/get-started/introduction-nrql-new-relics-query-language/)
+queries to scope the query to the appropriate data set.
+
+See the following sub-sections for more details on the data sets collected by
+each query.
+
+**NOTE:** Please see the note at the end of the [Consumption & Cost Data](#consumption--cost-data)
+section regarding job cost data and the last requirement in the
+[Consumption and Cost Requirements](#consumption-and-cost-collection-requirements)
+section for important considerations for collecting job cost data.
+
+##### List cost per job run
+
+Job cost data on the list cost per job run is collected using the query with the
+query id `jobs_cost_list_cost_per_job_run`. This query produces
+`DatabricksJobCost` events with the following attributes.
+
+| Name | Description |
+|---|---|
+| `workspace_id` | ID of the Workspace where the job run referenced in the `run_id` attribute occurred |
+| `workspace_name` | Name of the Workspace where the job run referenced in the `run_id` attribute occurred |
+| `job_id` | The unique job ID of the job associated with this job run |
+| `job_name` | The user-given name of the job referenced in the `job_id` attribute |
+| `run_id` | The unique run ID of this job run |
+| `run_as` | The ID of the user or service principal used for the job run (only included if [`includeIdentityMetadata`](#includeidentitymetadata) is `true`) |
+| `list_cost` | The estimated list cost of this job run |
+| `last_seen_date` | The last time a billable usage record was seen referencing the job ID referenced in the `job_id` attribute and the run ID referenced in the `run_id` attribute, in UTC |
+
+##### List cost per job
+
+Job cost data on the list cost per job is collected using the query with the
+query id `jobs_cost_list_cost_per_job`. This query produces `DatabricksJobCost`
+events with the following attributes.
+
+| Name | Description |
+|---|---|
+| `workspace_id` | ID of the Workspace containing the job referenced in the `job_id` attribute |
+| `workspace_name` | Name of the Workspace containing the job referenced in the `job_id` attribute |
+| `job_id` | The unique job ID of the job |
+| `job_name` | The user-given name of the job referenced in the `job_id` attribute |
+| `runs` | The number of job runs seen for the day this result was collected for the job referenced in the `job_id` attribute |
+| `run_as` | The ID of the user or service principal used to run the job (only included if [`includeIdentityMetadata`](#includeidentitymetadata) is `true`) |
+| `list_cost` | The estimated list cost of all runs for the job referenced in the `job_id` attribute for the day this result was collected |
+| `last_seen_date` | The last time a billable usage record was seen referencing the job ID referenced in the `job_id` attribute, in UTC |
+
+##### List cost of failed job runs for jobs with frequent failures
+
+Job cost data on the list cost of failed job runs for jobs with frequent
+failures is collected using the query with the query id
+`jobs_cost_frequent_failures`. This query produces `DatabricksJobCost` events
+with the following attributes.
+
+| Name | Description |
+|---|---|
+| `workspace_id` | ID of the Workspace containing the job referenced in the `job_id` attribute |
+| `workspace_name` | Name of the Workspace containing the job referenced in the `job_id` attribute |
+| `job_id` | The unique job ID of the job |
+| `job_name` | The user-given name of the job referenced in the `job_id` attribute |
+| `runs` | The number of job runs seen for the day this result was collected for the job referenced in the `job_id` attribute |
+| `run_as` | The ID of the user or service principal used to run the job (only included if [`includeIdentityMetadata`](#includeidentitymetadata) is `true`) |
+| `failures` | The number of job runs seen with the result state `ERROR`, `FAILED`, or `TIMED_OUT` for the day this result was collected for the job referenced in the `job_id` attribute |
+| `list_cost` | The estimated list cost of all failed job runs seen for the day this result was collected for the job referenced in the `job_id` attribute |
+| `last_seen_date` | The last time a billable usage record was seen referencing the job ID referenced in the `job_id` attribute, in UTC |
+
+##### List cost of repaired job runs for jobs with frequent repairs
+
+Job cost data on the list cost of repaired job runs for jobs with frequent
+repairs is collected using the query with the query id `jobs_cost_most_retries`.
+This query produces `DatabricksJobCost` events with the following attributes.
+
+| Name | Description |
+|---|---|
+| `workspace_id` | ID of the Workspace where the job run referenced in the `run_id` attribute occurred |
+| `workspace_name` | Name of the Workspace where the job run referenced in the `run_id` attribute occurred |
+| `job_id` | The unique job ID of the job associated with this job run |
+| `job_name` | The user-given name of the job referenced in the `job_id` attribute |
+| `run_id` | The unique run ID of this job run |
+| `run_as` | The ID of the user or service principal used to run the job (only included if [`includeIdentityMetadata`](#includeidentitymetadata) is `true`) |
+| `repairs` | The number of repair runs seen for the day this result was collected for the job run referenced in the `run_id` attribute where the result of the final repair run was `SUCCEEDED` |
+| `list_cost` | The estimated list cost of the repair runs seen for the day this result was collected for the job run referenced in the `run_id` attribute |
+| `repair_time_seconds` | The cumulative duration of the repair runs seen for the day this result was collected for the job run referenced in the `run_id` attribute |
 
 ## Building
 
