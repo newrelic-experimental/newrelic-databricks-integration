@@ -36,6 +36,13 @@ databricks:
       jobs_cost_list_cost_per_job: true
       jobs_cost_frequent_failures: true
       jobs_cost_most_retries: true
+  jobs:
+    runs:
+      enabled: true
+      metricPrefix: databricks.
+      includeIdentityMetadata: false
+      includeRunId: false
+      startOffset: 86400
 
 spark:
   webUiUrl: http://localhost:4040
