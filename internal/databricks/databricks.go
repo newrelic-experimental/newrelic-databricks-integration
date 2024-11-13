@@ -153,6 +153,41 @@ func InitPipelines(
 		)
 	}
 
+	collectJobRunData := true
+	if viper.IsSet("databricks.jobs.runs.enabled") {
+		collectJobRunData = viper.GetBool("databricks.jobs.runs.enabled")
+	}
+
+	if collectJobRunData {
+		startOffset := int64(24 * 60 * 60)
+		if viper.IsSet("databricks.jobs.runs.startOffset") {
+			startOffset = viper.GetInt64("databricks.jobs.runs.startOffset")
+		}
+
+		includeRunId := viper.GetBool(
+			"databricks.jobs.runs.includeRunId",
+		)
+
+		// Create a metrics pipeline
+		mp := pipeline.NewMetricsPipeline("databricks-job-run-pipeline")
+		mp.AddExporter(newRelicExporter)
+
+		// Create the receiver
+		databricksJobsReceiver := NewDatabricksJobRunReceiver(
+			i,
+			w,
+			viper.GetString("databricks.jobs.runs.metricPrefix"),
+			time.Duration(startOffset) * time.Second,
+			includeRunId,
+			tags,
+		)
+		mp.AddReceiver(databricksJobsReceiver)
+
+		log.Debugf("initializing Databricks job run pipeline")
+
+		i.AddComponent(mp)
+	}
+
 	return nil
 }
 

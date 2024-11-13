@@ -38,6 +38,7 @@ Databricks) and/or Spark telemetry from any Spark deployment. See the
       * [Spark configuration](#spark-configuration)
    * [Authentication](#authentication)
    * [Consumption & Cost Data](#consumption--cost-data)
+   * [Job Run Data](#job-run-data)
 * [Building](#building)
    * [Coding Conventions](#coding-conventions)
    * [Local Development](#local-development)
@@ -597,6 +598,15 @@ This element groups together the configuration parameters to [configure](#databr
 the Databricks collector settings related to the collection of
 [consumption and cost data](#consumption--cost-data).
 
+###### `jobs`
+
+| Description | Valid Values | Required | Default |
+| --- | --- | --- | --- |
+| The root node for the set of [Databricks Job configuration](#databricks-job-configuration) parameters | YAML Mapping | N | N/a |
+
+This element groups together the configuration parameters to [configure](#databricks-job-configuration)
+the Databricks collector settings related to the collection of job data.
+
 ##### Databricks `spark` configuration
 
 ###### Databricks Spark `enabled`
@@ -812,6 +822,92 @@ the following configuration would be specified.
     jobs_cost_frequent_failures: false
     jobs_cost_most_retries: false
 ```
+
+##### Databricks Job configuration
+
+###### `runs`
+
+| Description | Valid Values | Required | Default |
+| --- | --- | --- | --- |
+| The root node for the set of [Databricks Job Run configuration](#databricks-job-run-configuration) parameters | YAML Mapping | N | N/a |
+
+This element groups together the configuration parameters to [configure](#databricks-job-run-configuration)
+the Databricks collector settings related to the collection of [job run data](#job-run-data).
+
+##### Databricks job run configuration
+
+The Databricks job run configuration parameters are used to configure Databricks
+collector settings related to the collection of Databricks [job run data](#job-run-data).
+
+###### Databricks job runs `enabled`
+
+| Description | Valid Values | Required | Default |
+| --- | --- | --- | --- |
+| Flag to enable automatic collection of job run data | `true` / `false` | N | `true` |
+
+By default, when the Databricks collector is enabled, it will automatically
+collect [job run data](#job-run-data).
+
+This flag can be used to disable the collection of job run data by the
+Databricks collector. This may be useful when running multiple instances of the
+New Relic Databricks integration against the same Databricks
+[workspace](https://docs.databricks.com/en/getting-started/concepts.html#accounts-and-workspaces).
+In this scenario, Databricks job run data collection should _only_ be enabled on
+a single instance of the integration. Otherwise, this data will be recorded more
+than once in New Relic, affecting product features that use [job run metrics](#job-run-metrics)
+(e.g. [dashboards](https://docs.newrelic.com/docs/query-your-data/explore-query-data/dashboards/introduction-dashboards/)
+and [alerts](https://docs.newrelic.com/docs/alerts/overview/)).
+
+###### Databricks job run `metricPrefix`
+
+| Description | Valid Values | Required | Default |
+| --- | --- | --- | --- |
+| A prefix to prepend to Databricks [job run metric](#job-run-metrics) names | string | N | N/a |
+
+This parameter specifies a prefix that will be prepended to each Databricks
+[job run metric](#job-run-metrics) name when the metric is exported to New
+Relic.
+
+For example, if this parameter is set to `databricks.`, then the full name of
+the metric representing the duration of a job run (`job.run.duration`) will be
+`databricks.job.run.duration`.
+
+Note that it is not recommended to leave this value empty as the metric names
+without a prefix may be ambiguous.
+
+###### Databricks job run `includeRunId`
+
+| Description | Valid Values | Required | Default |
+| --- | --- | --- | --- |
+| Flag to enable inclusion of the job run ID in the `databricksJobRunId` attribute on all [job run metrics](#job-run-metrics) | `true` / `false` | N | `false` |
+
+By default, the Databricks collector will not include job run IDs on any of the
+[job run metrics](#job-run-metrics) in order to avoid possible violations of
+[metric cardinality limits](https://docs.newrelic.com/docs/data-apis/convert-to-metrics/creating-metric-rules-requirements-tips/#attributes-limit)
+due to the fact that job run IDs have high cardinality because they are unique
+across all jobs and job runs.
+
+This flag can be used to enable the inclusion of the job run ID in the
+`databricksJobRunId` attribute on all job metrics.
+
+When enabled, use the [Limits UI](https://docs.newrelic.com/docs/data-apis/manage-data/view-system-limits/#limits-ui)
+and/or create a [dashboard](https://docs.newrelic.com/docs/data-apis/manage-data/query-limits/#create-a-dashboard-to-view-your-limit-status)
+in order to monitor your limit status. Additionally, [set alerts on resource metrics](https://docs.newrelic.com/docs/data-apis/manage-data/query-limits/#set-alerts-on-resource-metrics)
+to provide updates on limits changes.
+
+###### `startOffset`
+
+| Description | Valid Values | Required | Default |
+| --- | --- | --- | --- |
+| Offset (in seconds) from the current time to use for calculating the earliest job run start time to match when listing job runs | number | N | 86400 (1 day) |
+
+This parameter specifies an offset, in seconds that can be used to tune the
+collector's performance by limiting the number of job runs to return by
+constraining the start time of job runs to match to be greather than a
+particular time in the past calculated as an offset from the current time.
+
+See the section [`startOffset` Configuration](#startoffset-configuration) for
+more details.
 
 ##### Spark configuration
 
@@ -1153,6 +1249,299 @@ This query produces `DatabricksJobCost` events with the following attributes.
 | `repairs` | The number of repair runs seen for the day this result was collected for the job run referenced in the `run_id` attribute where the result of the final repair run was `SUCCEEDED` |
 | `list_cost` | The estimated list cost of the repair runs seen for the day this result was collected for the job run referenced in the `run_id` attribute |
 | `repair_time_seconds` | The cumulative duration of the repair runs seen for the day this result was collected for the job run referenced in the `run_id` attribute |
+
+### Job Run Data
+
+The New Relic Databricks integration can collect telemetry about
+[Databricks Job](https://docs.databricks.com/en/jobs/index.html#what-are-databricks-jobs)
+runs, such as job run durations, task run durations, the current state of job
+and task runs, if a job or a task is a retry, and the number of times a task was
+retried. This feature is enabled by default and can be enabled or disabled using
+the [Databricks jobs `enabled`](#databricks-job-runs-enabled) flag in the
+[integration configuration](#configuration).
+
+**NOTE:** Some of the text below is sourced from the
+[Databricks SDK Go module documentation](https://pkg.go.dev/github.com/databricks/databricks-sdk-go@v0.46.0).
+
+#### `startOffset` Configuration
+
+On each run, the integration uses the [Databricks ReST API](https://docs.databricks.com/api/workspace/introduction)
+to retrieve job run data. By default, the [Databricks ReST API](https://docs.databricks.com/api/workspace/introduction)
+endpoint for [listing job runs](https://docs.databricks.com/api/workspace/jobs/listruns)
+returns a paginated list of _all_ historical job runs sorted in descending order
+by start time. On systems with many jobs, there may be a large number of job
+runs to retrieve and process, impacting the performance of the collector. To
+account for this, the integration provides the [`startOffset`](#startoffset)
+configuration parameter. This parameter is used to tune the performance of the
+integration by constraining the start time of job runs to match to be greater
+than a particular time in the past calculated as an offset from the current time
+and thus, limiting the number of job runs to return.
+
+The effect of this behavior is that only job runs which have a start time _at_
+or _after_ the calculated start time will be returned on the API call. For
+example, using the default [`startOffset`](#startoffset) (86400 seconds or 24
+hours), only job runs which started within the last 24 hours will be returned.
+This means that jobs that started more than 24 hours ago will not be returned
+_even if_ some of those jobs are not yet in a `TERMINATED` [state](#job-and-task-run-states).
+Therefore, it is important to carefully select a value for the [`startOffset`](#startoffset)
+parameter that will account for long-running job runs without degrading the
+performance of the integration.
+
+#### Job Run Metric Data
+
+Job run data is sent to New Relic as [dimensional metrics](https://docs.newrelic.com/docs/data-apis/understand-data/new-relic-data-types/#dimensional-metrics).
+The following metrics and attributes (dimensions) are provided.
+
+##### Job run metrics
+
+| Metric Name | Metric Type | Description |
+| --- | --- | --- |
+| `job.runs` | gauge | Job run [counts](#job-and-task-run-counts) per state |
+| `job.tasks` | gauge | Task run [counts](#job-and-task-run-counts) per state |
+| `job.run.duration` | gauge | [Duration](#job-and-task-run-durations) (in milliseconds) of the job run |
+| `job.run.duration.queue` | gauge | [Duration](#job-and-task-run-durations) (in milliseconds) the job run spent in the queue |
+| `job.run.duration.execution` | gauge | [Duration](#job-and-task-run-durations) (in milliseconds) the job run was actually executing commands (only available for single-task job runs) |
+| `job.run.duration.setup` | gauge | [Duration](#job-and-task-run-durations) (in milliseconds) it took to setup the cluster (only available for single-task job runs) |
+| `job.run.duration.cleanup` | gauge | [Duration](#job-and-task-run-durations) (in milliseconds) it took to terminate the cluster and cleanup associated artifacts (only available for single-task job runs) |
+| `job.run.task.duration` | gauge | [Duration](#job-and-task-run-durations) (in milliseconds) of the task run |
+| `job.run.task.duration.queue` | gauge | [Duration](#job-and-task-run-durations) (in milliseconds) the task run spent in the queue |
+| `job.run.task.duration.execution` | gauge | [Duration](#job-and-task-run-durations) (in milliseconds) the task run was actually executing commands |
+| `job.run.task.duration.setup` | gauge | [Duration](#job-and-task-run-durations) (in milliseconds) it took to setup the cluster |
+| `job.run.task.duration.cleanup` | gauge | [Duration](#job-and-task-run-durations) (in milliseconds) it took to terminate the cluster and cleanup associated artifacts |
+
+##### Job run attributes
+
+| Attribute Name | Data Type | Description |
+| --- | --- | --- |
+| `databricksJobId` | number | The unique numeric ID of the job being run |
+| `databricksJobRunId` | number | The unique numeric ID of the job run (only included if [`includeRunId`](#databricks-job-run-includerunid) is set to `true`) |
+| `databricksJobRunName` | string | The optional name of the job run |
+| `databricksJobRunAttemptNumber` | number | The sequence number of the run attempt for this job run (0 for the original attempt or if the job has no retry policy, greater than 0 for subsequent attempts for jobs with a retry policy) |
+| `databricksJobRunState` | string | The [state](#job-and-task-run-states) of the job run |
+| `databricksJobRunIsRetry` | boolean | `true` if the job run is a retry of an earlier failed attempt, otherwise `false` |
+| `databricksJobRunTerminationCode` | string | For terminated jobs, the job run [termination code](https://pkg.go.dev/github.com/databricks/databricks-sdk-go@v0.46.0/service/jobs#TerminationCodeCode) |
+| `databricksJobRunTerminationType` | string | For terminated jobs, the job run [termination type](https://pkg.go.dev/github.com/databricks/databricks-sdk-go@v0.46.0/service/jobs#TerminationTypeType) |
+| `databricksJobRunTaskName` | string | The unique name of the task within it's parent job |
+| `databricksJobRunTaskState` | string | The [state](#job-and-task-run-states) of the task run |
+| `databricksJobRunTaskAttemptNumber` | number | The sequence number of the run attempt for this task run (0 for the original attempt or if the task has no [retry policy](https://docs.databricks.com/en/jobs/configure-task.html#set-a-retry-policy), greater than 0 for subsequent attempts for tasks with a [retry policy](https://docs.databricks.com/en/jobs/configure-task.html#set-a-retry-policy)) |
+| `databricksJobRunTaskIsRetry` | boolean | `true` if the task run is a retry of an earlier failed attempt, otherwise `false` |
+| `databricksJobRunTaskTerminationCode` | string | For terminated tasks, the task run [termination code](https://pkg.go.dev/github.com/databricks/databricks-sdk-go@v0.46.0/service/jobs#TerminationCodeCode) |
+| `databricksJobRunTaskTerminationType` | string | For terminated tasks, the task run [termination type](https://pkg.go.dev/github.com/databricks/databricks-sdk-go@v0.46.0/service/jobs#TerminationTypeType) |
+
+##### Job and task run states
+
+Databricks job and task runs can be in one of 6 states.
+
+* `BLOCKED` - run is blocked on an upstream dependency
+* `PENDING` - run is waiting to be executed while the cluster and execution
+   context are being prepared
+* `QUEUED` - run is queued due to concurrency limits
+* `RUNNING` - run is executing
+* `TERMINATING` - run has completed, and the cluster and execution context are
+   being cleaned up
+* `TERMINATED` - run has completed
+
+The job and run task states are recorded in the `databricksJobRunState` and
+`databricksJobRunTaskState`, respectively. The `databricksJobRunState` is on
+every [job run metric](#job-run-metrics) including the task related metrics. The
+`databricksJobRunTaskState` is only on [job run metrics](#job-run-metrics)
+related to tasks, e.g. `job.run.task.duration`.
+
+##### Job and task run counts
+
+On each run, the integration records the number of job and task runs in each
+[state](#job-and-task-run-states) (with the exception of runs in the
+`TERMINATED` state (see below)), in the metrics `job.runs` and `job.tasks`,
+respectively, using the attributes `databricksJobRunState` and
+`databricksJobRunTaskState`, to indicate the [state](#job-and-task-run-states).
+In general, only the [`latest()`](https://docs.newrelic.com/docs/nrql/nrql-syntax-clauses-functions/#latest)
+aggregator function should be used when visualizing or alerting on counts
+including these [states](#job-and-task-run-states). For example, to display the
+number of jobs by state, use the following NRQL statement.
+
+```sql
+FROM Metric
+SELECT latest(databricks.job.runs)
+FACET databricksJobRunState
+```
+
+The count of job and task runs in the `TERMINATED` state are also recorded but
+only include job and task runs that have terminated _since the last run_ of the
+integration. This is done to avoid counting terminated job and task runs more
+than once, making it straightforward to use [aggregator functions](https://docs.newrelic.com/docs/nrql/nrql-syntax-clauses-functions/#aggregator-functions)
+to visualize or alert on values such as "number of job runs completed per time
+period", "average duration of job runs", and "average duration job runs spent in
+the queue". For example, to show the average time job runs spend in the queue,
+grouped by job name, use the following NRQL statement.
+
+```sql
+FROM Metric
+SELECT average(databricks.job.run.duration.queue / 1000)
+WHERE databricksJobRunState = 'TERMINATED'
+FACET databricksJobRunName
+LIMIT MAX
+```
+
+**NOTE:** Make sure to use the condition `databricksJobRunState = 'TERMINATED'`
+or `databricksJobRunTaskState = 'TERMINATED'` when visualizing or alerting on
+values using these [aggregator functions](https://docs.newrelic.com/docs/nrql/nrql-syntax-clauses-functions/#aggregator-functions).
+
+##### Job and task run durations
+
+The Databricks integration stores job and task run durations in the metrics
+`job.run.duration` and `job.run.task.duration`, respectively. The values stored
+in these metrics are calculated differently, depending on the state of the job
+or task, as follows.
+
+* While a job or task run is running (not `BLOCKED` or `TERMINATED`), the run
+  duration stored in the respective metrics is the "wall clock" time of the job
+  or task run, calculated as the current time when the metric is collected by
+  the integration minus the `start_time` of the job or task run as returned from
+  the [Databricks ReST API](https://docs.databricks.com/api/workspace/introduction).
+  This duration is *inclusive* of any time spent in the queue and any setup
+  time, execution time, and cleanup time that has been spent up to the time the
+  duration is calculated but does *not* include any time the job or task run was
+  blocked.
+
+  This duration is also cumulative, meaning that while the job run is running,
+  the value calculated each time the integration runs will include the entire
+  "wall clock" time since the reported `start_time`. It is essentially a
+  [`cumulativeCount` metric](https://docs.newrelic.com/docs/data-apis/understand-data/metric-data/cumulative-metrics/)
+  but stored as a `gauge`. Within [NRQL](https://docs.newrelic.com/docs/nrql/get-started/introduction-nrql-new-relics-query-language/)
+  statements, the [latest()](https://docs.newrelic.com/docs/nrql/nrql-syntax-clauses-functions/#latest)
+  function can be used to get the most recent duration. For example, to show the
+  most recent duration of job runs that are running grouped by job name, use the
+  following NRQL (assuming the job run [metricPrefix](#databricks-job-run-metricprefix)
+  is `databricks.`).
+
+  ```sql
+  FROM Metric
+  SELECT latest(databricks.job.run.duration)
+  WHERE databricksJobRunState != 'TERMINATED'
+  FACET databricksJobRunName
+  ```
+
+* Once a job or task run has been terminated, the run duration stored in the
+  respective metrics are not calculated but instead come directly from the
+  values returned in the [`listruns` API](https://docs.databricks.com/api/workspace/jobs/listruns)
+  (also see the SDK documentation for [`BaseRun`](https://pkg.go.dev/github.com/databricks/databricks-sdk-go@v0.46.0/service/jobs#BaseRun)
+  and [`RunTask`](https://pkg.go.dev/github.com/databricks/databricks-sdk-go@v0.46.0/service/jobs#RunTask)).
+  For both job and task runs, the run durations are determined as follows.
+
+  * For job runs of multi-task jobs, the `job.run.duration` for a job run is set
+    to the `run_duration` field of the corresponding job run item in the `runs`
+    field returned from the [`listruns` API](https://docs.databricks.com/api/workspace/jobs/listruns).
+  * For job runs of single-task jobs, the `job.run.duration` for a job run is
+    set to the sum of the `setup_duration`, the `execution_duration` and the
+    `cleanup_duration` fields of the corresponding job run item in the `runs`
+    field returned from the [`listruns` API](https://docs.databricks.com/api/workspace/jobs/listruns).
+  * For task runs, the `job.run.task.duration` for a task run is set to the sum
+    of the `setup_duration`, the `execution_duration` and the `cleanup_duration`
+    fields of the corresponding task run item in the `tasks` field of the
+    corresponding job run item in the `runs` field returned from the
+    [`listruns` API](https://docs.databricks.com/api/workspace/jobs/listruns).
+
+In addition to the `job.run.duration` and `job.run.task.duration` metrics, once
+a job or task has terminated, the `job.run.duration.queue` and
+`job.run.task.duration.queue` metrics are set to the `queue_duration` field of
+the corresponding job run item in the `runs` field returned from the
+[`listruns` API](https://docs.databricks.com/api/workspace/jobs/listruns) for
+job runs, and the `queue_duration` field of the corresponding task run item in
+the `tasks` field of the corresponding job run item in the `runs` field from the
+[`listruns` API](https://docs.databricks.com/api/workspace/jobs/listruns) for
+task runs.
+
+Finally, for job runs and task runs of _single-task jobs_, the following metrics
+are set.
+
+* The `job.run.duration.setup` and `job.run.task.duration.setup` metrics are set to the
+  `setup_duration` field of the corresponding job run item in the `runs` field
+  returned from the [`listruns` API](https://docs.databricks.com/api/workspace/jobs/listruns)
+  for job runs, and the `setup_duration` field of the corresponding task run
+  item in the `tasks` field of the corresponding job run item in the `runs`
+  field from the [`listruns` API](https://docs.databricks.com/api/workspace/jobs/listruns)
+  for task runs.
+* The `job.run.duration.execution` and `job.run.task.duration.execution` are set
+  to the `execution_duration` field of the corresponding job run item in the
+  `runs` field returned from the [`listruns` API](https://docs.databricks.com/api/workspace/jobs/listruns)
+  for job runs, and the `execution_duration` field of the corresponding task
+  run item in the `tasks` field of the corresponding job run item in the `runs`
+  field from the [`listruns` API](https://docs.databricks.com/api/workspace/jobs/listruns)
+  for task runs.
+* The `job.run.duration.cleanup` and `job.run.task.duration.cleanup` are set to
+  the `cleanup_duration` field of the corresponding job run item in the `runs`
+  field returned from the [`listruns` API](https://docs.databricks.com/api/workspace/jobs/listruns)
+  for job runs, and the `cleanup_duration` field of the corresponding task run
+  item in the `tasks` field of the corresponding job run item in the `runs`
+  field from the [`listruns` API](https://docs.databricks.com/api/workspace/jobs/listruns)
+  for task runs.
+
+#### Example Queries
+
+All examples below assume the job run [metricPrefix](#databricks-job-run-metricprefix)
+is `databricks.`.
+
+**Current job run counts by state**
+
+```sql
+FROM Metric
+SELECT latest(databricks.job.runs)
+FACET databricksJobRunState
+```
+
+**Current task run counts by state**
+
+```sql
+FROM Metric
+SELECT latest(databricks.job.tasks)
+FACET databricksJobRunTaskState
+```
+
+**Job run durations by job name over time**
+
+```sql
+FROM Metric
+SELECT latest(databricks.job.run.duration)
+FACET databricksJobRunName
+TIMESERIES
+```
+
+**Average job run duration by job name**
+
+```sql
+FROM Metric
+SELECT average(databricks.job.run.duration)
+WHERE databricksJobRunState = 'TERMINATED'
+FACET databricksJobRunName
+```
+
+**NOTE:** Make sure to use the condition `databricksJobRunState = 'TERMINATED'`
+or `databricksJobRunTaskState = 'TERMINATED'` when visualizing or alerting on
+values using [aggregator functions](https://docs.newrelic.com/docs/nrql/nrql-syntax-clauses-functions/#aggregator-functions)
+other than [latest](https://docs.newrelic.com/docs/nrql/nrql-syntax-clauses-functions/#latest).
+
+**Average task run queued duration by task name over time**
+
+```sql
+FROM Metric
+SELECT average(databricks.job.run.task.duration.queue)
+WHERE databricksJobRunTaskState = 'TERMINATED'
+FACET databricksJobRunTaskName
+TIMESERIES
+```
+
+**NOTE:** Make sure to use the condition `databricksJobRunState = 'TERMINATED'`
+or `databricksJobRunTaskState = 'TERMINATED'` when visualizing or alerting on
+values using [aggregator functions](https://docs.newrelic.com/docs/nrql/nrql-syntax-clauses-functions/#aggregator-functions)
+other than [latest](https://docs.newrelic.com/docs/nrql/nrql-syntax-clauses-functions/#latest).
+
+#### Example Job Runs Dashboard
+
+A [sample dashboard](./examples/job-runs-dashboard.json) is included that shows
+examples of the types of job run information that can be displayed and the NRQL
+statements to use to visualize the data.
+
+![Sample job runs dashboard image](./examples/job-runs-dashboard.png)
 
 ## Building
 
