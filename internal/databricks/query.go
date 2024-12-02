@@ -6,6 +6,7 @@ import (
 	"time"
 
 	databricksSdk "github.com/databricks/databricks-sdk-go"
+	databricksSql "github.com/databricks/databricks-sdk-go/service/sql"
 	"github.com/newrelic/newrelic-labs-sdk/v2/pkg/integration/log"
 	"github.com/newrelic/newrelic-labs-sdk/v2/pkg/integration/model"
 	"github.com/spf13/cast"
@@ -20,11 +21,15 @@ const (
 	RFC3339_DATE_ATTRIBUTE_TYPE
 	TAGS_ATTRIBUTE_TYPE
 	ID_ATTRIBUTE_TYPE
-	WORKSPACE_ID_ATTRIBUTE_TYPE
 	CLUSTER_ID_ATTRIBUTE_TYPE
 	WAREHOUSE_ID_ATTRIBUTE_TYPE
 	IGNORE_ATTRIBUTE_TYPE
 )
+
+type parameterResolverFunc func(
+	ctx context.Context,
+	w *databricksSdk.WorkspaceClient,
+) ([]databricksSql.StatementParameterListItem, error)
 
 type attributeNameAndType struct {
 	attrName		string
@@ -32,13 +37,15 @@ type attributeNameAndType struct {
 }
 
 type query struct {
-	id					string
-    title       		string
-	query				string
-	eventType			string
-	attributes			[]attributeNameAndType
-	offset				time.Duration
-	includeInvalidRows	bool
+	id						string
+    title       			string
+	query					string
+	eventType				string
+	attributes				[]attributeNameAndType
+	offset					time.Duration
+	includeInvalidRows		bool
+	includeWorkspaceInfo	bool
+	parameterResolver		parameterResolverFunc
 }
 
 type processRowFunc		func(query *query, attrs map[string]interface{}) error
@@ -46,7 +53,6 @@ type processRowFunc		func(query *query, attrs map[string]interface{}) error
 type DatabricksQueryReceiver struct {
 	id							string
 	w							*databricksSdk.WorkspaceClient
-	a							*databricksSdk.AccountClient
 	warehouseId 				string
 	defaultCatalog				string
 	defaultSchema				string
@@ -57,7 +63,6 @@ type DatabricksQueryReceiver struct {
 func NewDatabricksQueryReceiver(
 	id string,
 	w *databricksSdk.WorkspaceClient,
-	a *databricksSdk.AccountClient,
 	warehouseId string,
 	defaultCatalog string,
 	defaultSchema string,
@@ -67,7 +72,6 @@ func NewDatabricksQueryReceiver(
 	return &DatabricksQueryReceiver{
 		id,
 		w,
-		a,
 		warehouseId,
 		defaultCatalog,
 		defaultSchema,
@@ -130,6 +134,27 @@ func runQuery(
 ) error {
 	log.Debugf("running query %s (%s)", query.id, query.title)
 
+	var (
+		params 	[]databricksSql.StatementParameterListItem
+		err		error
+	)
+
+	if query.parameterResolver != nil {
+		params, err = query.parameterResolver(ctx, w)
+		if err != nil {
+			return err
+		}
+	}
+
+	var workspaceInfo *workspaceInfo
+
+	if query.includeWorkspaceInfo {
+		workspaceInfo, err = getWorkspaceInfo(ctx)
+		if err != nil {
+			return err
+		}
+	}
+
 	rows, err := executeStatementOnWarehouse(
 		ctx,
 		w,
@@ -137,6 +162,7 @@ func runQuery(
 		defaultCatalog,
 		defaultSchema,
 		query.query,
+		params,
 	)
 	if err != nil {
 		return err
@@ -160,7 +186,12 @@ func runQuery(
 		attrs := map[string]interface{}{}
 		attrs["query_id"] = query.id
 		attrs["query_title"] = query.title
-		workspaceId := ""
+
+		if workspaceInfo != nil {
+			attrs["workspace_id"] = workspaceInfo.id
+			attrs["workspace_url"] = workspaceInfo.url
+			attrs["workspace_instance_name"] = workspaceInfo.instanceName
+		}
 
 		for j, col := range row {
 			attrName := attributes[j].attrName
@@ -216,16 +247,6 @@ func runQuery(
 
 				attrs[attrName] = col
 
-			case WORKSPACE_ID_ATTRIBUTE_TYPE:
-				workspaceId, ok = columnToWorkspaceInfo(
-					ctx,
-					attrs,
-					attrName,
-					col,
-					i,
-					j,
-				)
-
 			case CLUSTER_ID_ATTRIBUTE_TYPE:
 				ok = columnToClusterInfo(
 					ctx,
@@ -235,7 +256,6 @@ func runQuery(
 					i,
 					j,
 					includeIdentityMetadata,
-					workspaceId,
 				)
 
 			case WAREHOUSE_ID_ATTRIBUTE_TYPE:
@@ -247,7 +267,6 @@ func runQuery(
 					i,
 					j,
 					includeIdentityMetadata,
-					workspaceId,
 				)
 
 			default:
@@ -394,52 +413,6 @@ func columnToTags(
 	return true
 }
 
-func columnToWorkspaceInfo(
-	ctx context.Context,
-	attrs map[string]interface{},
-	attrName string,
-	col string,
-	rowIndex int,
-	colIndex int,
-) (string, bool) {
-	if col == "" {
-		return "", true
-	}
-
-	attrs[attrName] = col
-	workspaceId := col
-
-	workspaceInfo, err := getWorkspaceInfoById(
-		ctx,
-		col,
-	)
-	if err != nil {
-		log.Warnf(
-			"could not resolve workspace ID %s to info for query attribute %s while processing column %d in row %d: %v",
-			col,
-			attrName,
-			colIndex,
-			rowIndex,
-			err,
-		)
-	} else if workspaceInfo == nil {
-		log.Warnf(
-			"could not resolve workspace ID %s to info for query attribute %s while processing column %d in row %d: workspace ID not found",
-			col,
-			attrName,
-			colIndex,
-			rowIndex,
-		)
-	} else {
-		attrs["workspace_name"] = workspaceInfo.name
-	}
-
-	// unresolved workspace id is not considered a failure
-	// query result will just be missing the workspace name
-
-	return workspaceId, true
-}
-
 func columnToClusterInfo(
 	ctx context.Context,
 	attrs map[string]interface{},
@@ -448,7 +421,6 @@ func columnToClusterInfo(
 	rowIndex int,
 	colIndex int,
 	includeIdentityMetadata bool,
-	workspaceId string,
 ) bool {
 	if col == "" {
 		return true
@@ -456,24 +428,8 @@ func columnToClusterInfo(
 
 	attrs[attrName] = col
 
-	if workspaceId == "" {
-		log.Warnf(
-			"could not resolve cluster ID %s to cluster info for query attribute %s while processing column %d in row %d: no workspace_id column found",
-			col,
-			attrName,
-			colIndex,
-			rowIndex,
-		)
-
-		// unresolved cluster id is not considered a failure
-		// query result will just be missing the cluster info
-
-		return true
-	}
-
 	clusterInfo, err := getClusterInfoById(
 		ctx,
-		workspaceId,
 		col,
 	)
 	if err != nil {
@@ -519,7 +475,6 @@ func columnToWarehouseInfo(
 	rowIndex int,
 	colIndex int,
 	includeIdentityMetadata bool,
-	workspaceId string,
 ) bool {
 	if col == "" {
 		return true
@@ -527,24 +482,8 @@ func columnToWarehouseInfo(
 
 	attrs[attrName] = col
 
-	if workspaceId == "" {
-		log.Warnf(
-			"could not resolve warehouse ID %s to warehouse info for query attribute %s while processing column %d in row %d: no workspace_id column found",
-			col,
-			attrName,
-			colIndex,
-			rowIndex,
-		)
-
-		// unresolved warehouse id is not considered a failure
-		// query result will just be missing the warehouse info
-
-		return true
-	}
-
 	warehouseInfo, err := getWarehouseInfoById(
 		ctx,
-		workspaceId,
 		col,
 	)
 	if err != nil {

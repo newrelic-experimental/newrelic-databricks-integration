@@ -1,6 +1,13 @@
 package databricks
 
-import "time"
+import (
+	"context"
+	"strconv"
+	"time"
+
+	databricksSdk "github.com/databricks/databricks-sdk-go"
+	databricksSql "github.com/databricks/databricks-sdk-go/service/sql"
+)
 
 const (
 	BILLING_USAGE_QUERY_ID = "billing_usage"
@@ -10,6 +17,23 @@ const (
 	JOBS_COST_FREQUENT_FAILURES_QUERY_ID = "jobs_cost_frequent_failures"
 	JOBS_COST_MOST_RETRIES_QUERY_ID = "jobs_cost_most_retries"
 )
+
+func workspaceIdParameterResolver(
+	ctx context.Context,
+	w *databricksSdk.WorkspaceClient,
+) ([]databricksSql.StatementParameterListItem, error) {
+	workspaceId, err := w.CurrentWorkspaceID(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return []databricksSql.StatementParameterListItem{
+		{
+			Name: "workspace_id",
+			Value: strconv.FormatInt(workspaceId, 10),
+		},
+	}, nil
+}
 
 var (
 	gBillingUsageQuery = query{
@@ -21,11 +45,13 @@ with most_recent_jobs as (
 		*,
 		ROW_NUMBER() OVER(PARTITION BY workspace_id, job_id ORDER BY change_time DESC) as rn
 	FROM
-		system.lakeflow.jobs QUALIFY rn=1
+		system.lakeflow.jobs
+	WHERE
+		workspace_id = :workspace_id
+	QUALIFY rn=1
 )
 SELECT
-	t1.account_id AS account_id, t1.workspace_id AS workspace_id,
-	record_id, sku_name, cloud,
+	t1.account_id AS account_id, record_id, sku_name, cloud,
 	usage_start_time, usage_end_time, usage_date, custom_tags,
 	usage_unit, usage_quantity,	record_type, ingestion_date,
 	billing_origin_product, usage_type,
@@ -45,12 +71,11 @@ SELECT
 FROM
 	system.billing.usage t1
 	LEFT JOIN most_recent_jobs t2 ON t2.workspace_id = t1.workspace_id AND t2.job_id = t1.usage_metadata.job_id
-WHERE t1.usage_date = CURRENT_DATE() - INTERVAL 1 DAY
+WHERE t1.usage_date = CURRENT_DATE() - INTERVAL 1 DAY AND t1.workspace_id = :workspace_id
 LIMIT 15000`,
 		eventType: DATABRICKS_USAGE_EVENT_TYPE,
 		attributes: []attributeNameAndType{
 			{ "account_id", STRING_ATTRIBUTE_TYPE },
-			{ "workspace_id", WORKSPACE_ID_ATTRIBUTE_TYPE },
 			{ "record_id", STRING_ATTRIBUTE_TYPE },
 			{ "sku_name", STRING_ATTRIBUTE_TYPE },
 			{ "cloud", STRING_ATTRIBUTE_TYPE },
@@ -91,6 +116,8 @@ LIMIT 15000`,
 			{ "job_tags", TAGS_ATTRIBUTE_TYPE },
 		},
 		offset: 23 * time.Hour,
+		includeWorkspaceInfo: true,
+		parameterResolver: workspaceIdParameterResolver,
 	}
 	gListPricesQuery = query{
 		id: LIST_PRICES_QUERY_ID,
@@ -102,6 +129,7 @@ SELECT
 FROM
 	system.billing.list_prices
 LIMIT 15000`,
+		eventType: DATABRICKS_LIST_PRICES_LOOKUP_TABLE_NAME,
 		attributes: []attributeNameAndType{
 			{ "account_id", STRING_ATTRIBUTE_TYPE },
 			{ "price_start_time", RFC3339_DATE_ATTRIBUTE_TYPE },
@@ -138,6 +166,7 @@ with list_cost_per_job_run as (
 		AND t1.usage_metadata.job_id IS NOT NULL
 		AND t1.usage_metadata.job_run_id IS NOT NULL
 		AND t1.usage_date = CURRENT_DATE() - INTERVAL 1 DAY
+		AND t1.workspace_id = :workspace_id
 	GROUP BY ALL
 ),
 most_recent_jobs as (
@@ -145,10 +174,12 @@ most_recent_jobs as (
 		*,
 		ROW_NUMBER() OVER(PARTITION BY workspace_id, job_id ORDER BY change_time DESC) as rn
 	FROM
-		system.lakeflow.jobs QUALIFY rn=1
+		system.lakeflow.jobs
+	WHERE
+		workspace_id = :workspace_id
+	QUALIFY rn=1
 )
 SELECT
-	t1.workspace_id,
 	t2.name,
 	t1.job_id,
 	t1.run_id,
@@ -161,7 +192,6 @@ GROUP BY ALL
 ORDER BY list_cost DESC`,
 			eventType: DATABRICKS_JOB_COST_EVENT_TYPE,
 			attributes: []attributeNameAndType{
-				{ "workspace_id", WORKSPACE_ID_ATTRIBUTE_TYPE },
 				{ "job_name", STRING_ATTRIBUTE_TYPE },
 				{ "job_id", STRING_ATTRIBUTE_TYPE },
 				{ "run_id", STRING_ATTRIBUTE_TYPE },
@@ -170,6 +200,8 @@ ORDER BY list_cost DESC`,
 				{ "last_seen_date", RFC3339_DATE_ATTRIBUTE_TYPE },
 			},
 			offset: 23 * time.Hour,
+			includeWorkspaceInfo: true,
+			parameterResolver: workspaceIdParameterResolver,
 		},
 		{
 			id: JOBS_COST_LIST_COST_PER_JOB_QUERY_ID,
@@ -194,6 +226,7 @@ with list_cost_per_job as (
 		t1.sku_name LIKE '%JOBS%'
 		AND t1.usage_metadata.job_id IS NOT NULL
 		AND t1.usage_date = CURRENT_DATE() - INTERVAL 1 DAY
+		AND t1.workspace_id = :workspace_id
 	GROUP BY ALL
 ),
 most_recent_jobs as (
@@ -201,12 +234,14 @@ most_recent_jobs as (
 		*,
 		ROW_NUMBER() OVER(PARTITION BY workspace_id, job_id ORDER BY change_time DESC) as rn
 	FROM
-		system.lakeflow.jobs QUALIFY rn=1
+		system.lakeflow.jobs
+	WHERE
+		workspace_id = :workspace_id
+	QUALIFY rn=1
 )
 SELECT
 	t2.name,
 	t1.job_id,
-	t1.workspace_id,
 	t1.runs,
 	t1.run_as,
 	t1.list_cost,
@@ -219,13 +254,14 @@ ORDER BY list_cost DESC`,
 			attributes: []attributeNameAndType{
 				{ "job_name", STRING_ATTRIBUTE_TYPE },
 				{ "job_id", STRING_ATTRIBUTE_TYPE },
-				{ "workspace_id", WORKSPACE_ID_ATTRIBUTE_TYPE },
 				{ "runs", INT64_ATTRIBUTE_TYPE },
 				{ "run_as", ID_ATTRIBUTE_TYPE },
 				{ "list_cost", FLOAT64_ATTRIBUTE_TYPE },
 				{ "last_seen_date", RFC3339_DATE_ATTRIBUTE_TYPE },
 			},
 			offset: 23 * time.Hour,
+			includeWorkspaceInfo: true,
+			parameterResolver: workspaceIdParameterResolver,
 		},
 		{
 			id: JOBS_COST_FREQUENT_FAILURES_QUERY_ID,
@@ -253,8 +289,10 @@ with job_run_timeline_with_cost as (
 			t1.usage_start_time >= list_prices.price_start_time and
 			(t1.usage_end_time <= list_prices.price_end_time or list_prices.price_end_time is null)
 	WHERE
-		t1.sku_name LIKE '%JOBS%' AND
-		t1.usage_date = CURRENT_DATE() - INTERVAL 1 DAYS
+		t1.sku_name LIKE '%JOBS%'
+		AND t1.usage_date = CURRENT_DATE() - INTERVAL 1 DAYS
+		AND t1.workspace_id = :workspace_id
+		AND t2.workspace_id = :workspace_id
 ),
 cumulative_run_status_cost as (
 	SELECT
@@ -301,18 +339,21 @@ terminal_statues as (
 	WHERE
 		result_state IS NOT NULL AND
 		period_end_time >= CURRENT_DATE() - INTERVAL 1 DAYS AND
-		period_end_time < CURRENT_DATE()
+		period_end_time < CURRENT_DATE() AND
+		workspace_id = :workspace_id
 ),
 most_recent_jobs as (
 	SELECT
 		*,
 		ROW_NUMBER() OVER(PARTITION BY workspace_id, job_id ORDER BY change_time DESC) as rn
 	FROM
-		system.lakeflow.jobs QUALIFY rn=1
+		system.lakeflow.jobs
+	WHERE
+		workspace_id = :workspace_id
+	QUALIFY rn=1
 )
 SELECT
 	first(t2.name) as name,
-	t1.workspace_id,
 	t1.job_id,
 	COUNT(*) as runs,
 	t3.run_as,
@@ -327,7 +368,6 @@ ORDER BY failures DESC`,
 			eventType: DATABRICKS_JOB_COST_EVENT_TYPE,
 			attributes: []attributeNameAndType{
 				{ "job_name", STRING_ATTRIBUTE_TYPE },
-				{ "workspace_id", WORKSPACE_ID_ATTRIBUTE_TYPE },
 				{ "job_id", STRING_ATTRIBUTE_TYPE },
 				{ "runs", INT64_ATTRIBUTE_TYPE },
 				{ "run_as", ID_ATTRIBUTE_TYPE },
@@ -336,6 +376,8 @@ ORDER BY failures DESC`,
 				{ "last_seen_date", RFC3339_DATE_ATTRIBUTE_TYPE },
 			},
 			offset: 23 * time.Hour,
+			includeWorkspaceInfo: true,
+			parameterResolver: workspaceIdParameterResolver,
 		},
 		{
 			id: JOBS_COST_MOST_RETRIES_QUERY_ID,
@@ -363,8 +405,10 @@ with job_run_timeline_with_cost as (
 			t1.usage_start_time >= list_prices.price_start_time and
 			(t1.usage_end_time <= list_prices.price_end_time or list_prices.price_end_time is null)
 	WHERE
-		t1.sku_name LIKE '%JOBS%' AND
-		t1.usage_date = CURRENT_DATE() - INTERVAL 1 DAYS
+		t1.sku_name LIKE '%JOBS%'
+		AND t1.usage_date = CURRENT_DATE() - INTERVAL 1 DAYS
+		AND t1.workspace_id = :workspace_id
+		AND t2.workspace_id = :workspace_id
 ),
 cumulative_run_status_cost as (
 	SELECT
@@ -407,7 +451,7 @@ repaired_runs as (
 	SELECT
 		workspace_id, job_id, run_id, COUNT(*) as cnt
 	FROM system.lakeflow.job_run_timeline
-	WHERE result_state IS NOT NULL
+	WHERE result_state IS NOT NULL AND workspace_id = :workspace_id
 	GROUP BY ALL
 	HAVING cnt > 1
 ),
@@ -416,7 +460,7 @@ successful_repairs as (
 	FROM system.lakeflow.job_run_timeline t1
 		JOIN repaired_runs t2
 		ON t1.workspace_id=t2.workspace_id AND t1.job_id=t2.job_id AND t1.run_id=t2.run_id
-	WHERE t1.result_state="SUCCEEDED"
+	WHERE t1.result_state="SUCCEEDED" AND t1.workspace_id = :workspace_id
 	GROUP BY ALL
 ),
 combined_repairs as (
@@ -432,11 +476,13 @@ most_recent_jobs as (
 		*,
 		ROW_NUMBER() OVER(PARTITION BY workspace_id, job_id ORDER BY change_time DESC) as rn
 	FROM
-		system.lakeflow.jobs QUALIFY rn=1
+		system.lakeflow.jobs
+	WHERE
+		workspace_id = :workspace_id
+	QUALIFY rn=1
 )
 SELECT
 	last(t3.name) as name,
-	t1.workspace_id,
 	t1.job_id,
 	t1.run_id,
 	first(t4.run_as, TRUE) as run_as,
@@ -449,12 +495,12 @@ FROM combined_repairs t1
 	LEFT JOIN cost_per_unsuccesful_status_agg t4 USING (workspace_id, job_id, run_id)
 WHERE
 	t2.result_state IS NOT NULL
+	AND t2.workspace_id = :workspace_id
 GROUP BY t1.workspace_id, t1.job_id, t1.run_id, t1.period_end_time
 ORDER BY repairs DESC`,
 			eventType: DATABRICKS_JOB_COST_EVENT_TYPE,
 			attributes: []attributeNameAndType{
 				{ "job_name", STRING_ATTRIBUTE_TYPE },
-				{ "workspace_id", WORKSPACE_ID_ATTRIBUTE_TYPE },
 				{ "job_id", STRING_ATTRIBUTE_TYPE },
 				{ "run_id", STRING_ATTRIBUTE_TYPE },
 				{ "run_as", ID_ATTRIBUTE_TYPE },
@@ -463,5 +509,7 @@ ORDER BY repairs DESC`,
 				{ "repair_time_seconds", INT64_ATTRIBUTE_TYPE },
 			},
 			offset: 23 * time.Hour,
+			includeWorkspaceInfo: true,
+			parameterResolver: workspaceIdParameterResolver,
 		}}
 )

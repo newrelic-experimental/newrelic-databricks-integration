@@ -534,7 +534,7 @@
                 "accountIds": [
                   0
                 ],
-                "query": "SELECT sum(list_cost)\nWITH usage_quantity * list_price AS list_cost\nFROM DatabricksUsage\nJOIN (\n SELECT list_price, sku_name AS price_sku_name\n FROM lookup(DatabricksListPrices)\n) ON sku_name = price_sku_name\nWHERE sku_name LIKE '%JOBS%'\nSINCE 3 months ago\nCOMPARE WITH 6 months ago\nFACET workspace_name\nLIMIT 100\nTIMESERIES 1 week"
+                "query": "SELECT sum(list_cost)\nWITH usage_quantity * list_price AS list_cost\nFROM DatabricksUsage\nJOIN (\n SELECT list_price, sku_name AS price_sku_name\n FROM lookup(DatabricksListPrices)\n) ON sku_name = price_sku_name\nWHERE sku_name LIKE '%JOBS%'\nSINCE 3 months ago\nCOMPARE WITH 6 months ago\nFACET workspace_instance_name\nLIMIT 100\nTIMESERIES 1 week"
               }
             ],
             "platformOptions": {
@@ -575,7 +575,7 @@
                 "accountIds": [
                   0
                 ],
-                "query": "SELECT sum(list_cost)\nWITH usage_quantity * list_price AS list_cost\nFROM DatabricksUsage\nJOIN (\n SELECT list_price, sku_name AS price_sku_name\n FROM lookup(DatabricksListPrices)\n) ON sku_name = price_sku_name\nWHERE sku_name LIKE '%JOBS%' AND job_id IS NOT NULL\nSINCE 31 days ago UNTIL today\nFACET job_name, workspace_name, run_as\nLIMIT 20"
+                "query": "SELECT sum(list_cost)\nWITH usage_quantity * list_price AS list_cost\nFROM DatabricksUsage\nJOIN (\n SELECT list_price, sku_name AS price_sku_name\n FROM lookup(DatabricksListPrices)\n) ON sku_name = price_sku_name\nWHERE sku_name LIKE '%JOBS%' AND job_id IS NOT NULL\nSINCE 31 days ago UNTIL today\nFACET job_name, workspace_instance_name, run_as\nLIMIT 20"
               }
             ],
             "platformOptions": {
@@ -607,7 +607,7 @@
                 "accountIds": [
                   0
                 ],
-                "query": "SELECT sum(list_cost)\nFROM DatabricksJobCost\nWHERE query_id = 'jobs_cost_list_cost_per_job'\nSINCE 8 days ago UNTIL today\nCOMPARE with 15 days ago\nFACET job_name, workspace_name\nLIMIT 20\nTIMESERIES 1 day"
+                "query": "SELECT sum(list_cost)\nFROM DatabricksJobCost\nWHERE query_id = 'jobs_cost_list_cost_per_job'\nSINCE 8 days ago UNTIL today\nCOMPARE with 15 days ago\nFACET job_name, workspace_instance_name\nLIMIT 20\nTIMESERIES 1 day"
               }
             ],
             "platformOptions": {
@@ -662,7 +662,7 @@
                 "accountIds": [
                   0
                 ],
-                "query": "SELECT sum(list_cost) as 'Last 7 Day Cost',\n latest(list_cost_14_day) as 'Last 14 day cost',\n sum(list_cost) - latest(list_cost_14_day) as 'Last 7 Day Growth'\nFROM DatabricksJobCost\nJOIN (\n SELECT sum(list_cost) as list_cost_14_day\n FROM DatabricksJobCost\n WHERE query_id = 'jobs_cost_list_cost_per_job'\n SINCE 15 days ago until 8 days ago\n FACET workspace_id, job_id, job_name, sku_name, run_as\n LIMIT 100\n) ON job_id\nWHERE query_id = 'jobs_cost_list_cost_per_job'\nSINCE 8 days ago UNTIL today\nFACET workspace_id, job_id, job_name, sku_name, run_as\nLIMIT 100"
+                "query": "SELECT sum(list_cost) as 'Last 7 Day Cost',\n latest(list_cost_14_day) as 'Last 14 day cost',\n sum(list_cost) - latest(list_cost_14_day) as 'Last 7 Day Growth'\nFROM DatabricksJobCost\nJOIN (\n SELECT sum(list_cost) as list_cost_14_day\n FROM DatabricksJobCost\n WHERE query_id = 'jobs_cost_list_cost_per_job'\n SINCE 15 days ago until 8 days ago\n FACET workspace_id, job_id, job_name, run_as\n LIMIT 100\n) ON job_id\nWHERE query_id = 'jobs_cost_list_cost_per_job'\nSINCE 8 days ago UNTIL today\nFACET workspace_id, job_id, job_name, run_as\nLIMIT 100"
               }
             ],
             "platformOptions": {
@@ -702,7 +702,7 @@
                 "accountIds": [
                   0
                 ],
-                "query": "SELECT sum(list_cost), latest(runs), latest(last_seen_date)\nFROM DatabricksJobCost\nWHERE query_id = 'jobs_cost_list_cost_per_job'\nSINCE 31 days ago UNTIL today\nFACET workspace_id, workspace_name, job_id, job_name, run_as\nLIMIT 100"
+                "query": "SELECT sum(list_cost), latest(runs), latest(last_seen_date)\nFROM DatabricksJobCost\nWHERE query_id = 'jobs_cost_list_cost_per_job'\nSINCE 31 days ago UNTIL today\nFACET workspace_id, workspace_instance_name, job_id, job_name, run_as\nLIMIT 100"
               }
             ],
             "platformOptions": {
@@ -738,7 +738,7 @@
                 "accountIds": [
                   0
                 ],
-                "query": "SELECT sum(list_cost), latest(last_seen_date)\nFROM DatabricksJobCost\nWHERE query_id = 'jobs_cost_list_cost_per_job_run'\nSINCE 31 days ago UNTIL today\nFACET workspace_id, workspace_name, job_id, job_name, run_id, run_as, last_seen_date\nLIMIT 100\n"
+                "query": "SELECT sum(list_cost), latest(last_seen_date)\nFROM DatabricksJobCost\nWHERE query_id = 'jobs_cost_list_cost_per_job_run'\nSINCE 31 days ago UNTIL today\nFACET workspace_id, workspace_instance_name, job_id, job_name, run_id, run_as\nLIMIT 100\n"
               }
             ],
             "platformOptions": {
@@ -782,7 +782,7 @@
                 "accountIds": [
                   0
                 ],
-                "query": "SELECT sum(runs), sum(failures), sum(list_cost) AS 'Failure Cost', max(last_seen_date) AS 'Last Seen Date'\nFROM DatabricksJobCost\nWHERE query_id = 'jobs_cost_frequent_failures'\nSINCE 31 days ago UNTIL today\nFACET workspace_id, workspace_name, job_id, job_name, run_as\nLIMIT 100"
+                "query": "SELECT sum(runs), sum(failures), sum(list_cost) AS 'Failure Cost', max(last_seen_date) AS 'Last Seen Date'\nFROM DatabricksJobCost\nWHERE query_id = 'jobs_cost_frequent_failures'\nSINCE 31 days ago UNTIL today\nFACET workspace_id, workspace_instance_name, job_id, job_name, run_as\nLIMIT 100"
               }
             ],
             "platformOptions": {
@@ -811,7 +811,7 @@
                 "accountIds": [
                   0
                 ],
-                "query": "SELECT latest(run_as), sum(repairs), sum(repair_time_seconds), sum(list_cost) AS 'Repair Cost'\nFROM DatabricksJobCost\nWHERE query_id = 'jobs_cost_most_retries'\nSINCE 31 days ago UNTIL today\nFACET workspace_id, workspace_name, job_id, job_name, run_id\nLIMIT 100"
+                "query": "SELECT latest(run_as), sum(repairs), sum(repair_time_seconds), sum(list_cost) AS 'Repair Cost'\nFROM DatabricksJobCost\nWHERE query_id = 'jobs_cost_most_retries'\nSINCE 31 days ago UNTIL today\nFACET workspace_id, workspace_instance_name, job_id, job_name, run_id\nLIMIT 100"
               }
             ],
             "platformOptions": {
@@ -872,7 +872,7 @@
                 "accountIds": [
                   0
                 ],
-                "query": "SELECT\n count(run_id) as 'Runs',\n sum(list_cost),\n average(list_cost),\n max(list_cost),\n percentile(list_cost, 90),\n max(list_cost) - percentile(list_cost, 90) AS 'List Cost Deviation'\nFROM DatabricksJobCost\nWHERE query_id = 'jobs_cost_list_cost_per_job_run'\nSINCE 31 days ago UNTIL today\nFACET workspace_id, workspace_name, job_id, job_name\nLIMIT 100 "
+                "query": "SELECT\n count(run_id) as 'Runs',\n sum(list_cost),\n average(list_cost),\n max(list_cost),\n percentile(list_cost, 90),\n max(list_cost) - percentile(list_cost, 90) AS 'List Cost Deviation'\nFROM DatabricksJobCost\nWHERE query_id = 'jobs_cost_list_cost_per_job_run'\nSINCE 31 days ago UNTIL today\nFACET workspace_id, workspace_instance_name, job_id, job_name\nLIMIT 100 "
               }
             ],
             "platformOptions": {
