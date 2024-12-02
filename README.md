@@ -430,56 +430,6 @@ parameter is unused in that scenario.
 The workspace host can also be specified using the `DATABRICKS_HOST`
 environment variable.
 
-**NOTE:** The `DATABRICKS_HOST` environment variable can not be used to specify
-_both_ the [instance name](https://docs.databricks.com/en/workspace/workspace-details.html#workspace-instance-names-urls-and-ids)
-and the accounts API endpoint. To account for this, the environment variables
-`DATABRICKS_WORKSPACEHOST` and `DATABRICKS_ACCOUNTHOST` environment variables
-can be alternately used either separately or in combination with the
-`DATABRICKS_HOST` environment variable to specify the
-[instance name](https://docs.databricks.com/en/workspace/workspace-details.html#workspace-instance-names-urls-and-ids)
-and the accounts API endpoint, respectively.
-
-###### `accountHost`
-
-| Description | Valid Values | Required | Default |
-| --- | --- | --- | --- |
-| Databricks accounts API endpoint | string | conditional | N/a |
-
-This parameter specifies the accounts API endpoint. This is
-used by the integration when constructing the URLs for account-level
-[ReST API](https://docs.databricks.com/api/workspace/introduction) calls. Note
-that unlike the value of [`workspaceHost`](#workspacehost), the value of this
-parameter _must_ include the `https://` prefix, e.g.
-`https://accounts.cloud.databricks.com`.
-
-This parameter is required when the collection of Databricks [consumption and cost data](#consumption--cost-data)
-data is [enabled](#databricks-usage-enabled).
-
-The account host can also be specified using the `DATABRICKS_HOST`
-environment variable.
-
-**NOTE:** The `DATABRICKS_HOST` environment variable can not be used to specify
-_both_ the [instance name](https://docs.databricks.com/en/workspace/workspace-details.html#workspace-instance-names-urls-and-ids)
-and the accounts API endpoint. To account for this, the environment variables
-`DATABRICKS_WORKSPACEHOST` and `DATABRICKS_ACCOUNTHOST` environment variables
-can be alternately used either separately or in combination with the
-`DATABRICKS_HOST` environment variable to specify the
-[instance name](https://docs.databricks.com/en/workspace/workspace-details.html#workspace-instance-names-urls-and-ids)
-and the accounts API endpoint, respectively.
-
-###### `accountId`
-
-| Description | Valid Values | Required | Default |
-| --- | --- | --- | --- |
-| Databricks account ID for the accounts API | string | conditional | N/a |
-
-This parameter specifies the Databricks account ID. This is used by the
-integration when constructing the URLs for account-level
-[ReST API](https://docs.databricks.com/api/workspace/introduction) calls.
-
-This parameter is required when the collection of Databricks [consumption and cost data](#consumption--cost-data)
-data is [enabled](#databricks-usage-enabled).
-
 ###### `accessToken`
 
 | Description | Valid Values | Required | Default |
@@ -495,12 +445,6 @@ environment variable or any other SDK-supported mechanism (e.g. the `token`
 field in a Databricks [configuration profile](https://docs.databricks.com/en/dev-tools/auth/config-profiles.html)).
 
 See the [authentication section](#authentication) for more details.
-
-**NOTE:** Databricks personal access tokens can only be used to collect data
-at the workspace level. They can not be used to collect account-level data using
-the account-level [ReST APIs](https://docs.databricks.com/api/workspace/introduction).
-To collect account level data such as [consumption and cost data](#consumption--cost-data),
-OAuth authentication must be used instead.
 
 ###### `oauthClientId`
 
@@ -966,12 +910,6 @@ For convenience purposes, the following parameters can be used in the
   SDK to explicitly use [Databricks personal access token authentication](https://docs.databricks.com/en/dev-tools/auth/pat.html).
   The SDK will _not_ attempt to try other authentication mechanisms and instead
   will fail immediately if personal access token authentication fails.
-
-  **NOTE:** Databricks personal access tokens can only be used to collect data
-  at the workspace level. They can not be used to collect account-level data
-  using the account-level [ReST APIs](https://docs.databricks.com/api/workspace/introduction).
-  To collect account level data such as [consumption and cost data](#consumption--cost-data),
-  OAuth authentication must be used instead.
 - [`oauthClientId`](#oauthclientid) - When set, the integration will instruct
   the SDK to explicitly [use a service principal to authenticate with Databricks (OAuth M2M)](https://docs.databricks.com/en/dev-tools/auth/oauth-m2m.html).
   The SDK will _not_ attempt to try other authentication mechanisms and instead
@@ -1021,16 +959,6 @@ collect Job cost data.
 In order for the New Relic Databricks integration to collect consumption and
 cost related data from Databricks, there are several requirements.
 
-1. OAuth [authentication](#authentication) must be used. This is required even
-   when the integration is
-   [deployed on the driver node of a Databricks cluster](#deploy-the-integration-on-the-driver-node-of-a-databricks-cluster)
-   using the provided [init script](./init/cluster_init_integration.sh) because
-   the integration leverages account-level [ReST APIs](https://docs.databricks.com/api/workspace/introduction)
-   when collecting consumption and cost related data. These APIs can only be
-   accessed when OAuth [authentication](#authentication) is used.
-1. An [account ID](#accountid) and [account host](#accounthost) must be provided
-   since the account-level [ReST APIs](https://docs.databricks.com/api/workspace/introduction)
-   require them.
 1. The SQL [warehouse ID](#warehouseid) of a [SQL warehouse](https://docs.databricks.com/en/compute/sql-warehouse/index.html)
    within the workspace associated with the configured [workspace host](#workspacehost)
    must be specified. The Databricks SQL queries used to collect consumption and
@@ -1065,7 +993,8 @@ compute.
 |---|---|
 | `account_id` | ID of the account this usage record was generated for |
 | `workspace_id` | ID of the Workspace this usage record was associated with |
-| `workspace_name` | Name of the Workspace this usage record was associated with |
+| `workspace_url` | URL of the Workspace this usage record was associated with |
+| `workspace_instance_name` | [Instance name](https://docs.databricks.com/en/workspace/workspace-details.html#workspace-instance-names-urls-and-ids) of the Workspace this usage record was associated with |
 | `record_id` | Unique ID for this usage record |
 | `sku_name` | Name of the SKU associated with this usage record |
 | `cloud` | Name of the Cloud this usage record is relevant for |

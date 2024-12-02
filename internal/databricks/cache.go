@@ -3,7 +3,7 @@ package databricks
 import (
 	"context"
 	"fmt"
-	"strconv"
+	"net/url"
 	"sync"
 	"time"
 
@@ -24,7 +24,9 @@ type memoryCache[T interface{}] struct {
 }
 
 type workspaceInfo struct {
-	name			string
+	id				int64
+	url				string
+	instanceName	string
 }
 
 type clusterInfo struct {
@@ -41,7 +43,7 @@ type warehouseInfo struct {
 }
 
 var (
-	workspaceInfoCache			*memoryCache[map[int64]*workspaceInfo]
+	workspaceInfoCache			*memoryCache[*workspaceInfo]
 	clusterInfoCache			*memoryCache[map[string]*clusterInfo]
 	warehouseInfoCache			*memoryCache[map[string]*warehouseInfo]
 )
@@ -86,24 +88,24 @@ func (m *memoryCache[T]) invalidate() {
 // @todo: allow cache expiry values to be configured
 
 func initInfoByIdCaches(
-	a *databricksSdk.AccountClient,
+	w *databricksSdk.WorkspaceClient,
 ) {
 	workspaceInfoCache = newMemoryCache(
 		5 * time.Minute,
-		func(ctx context.Context) (*map[int64]*workspaceInfo, error) {
-			m, err := buildWorkspaceInfoByIdMap(ctx, a)
+		func(ctx context.Context) (**workspaceInfo, error) {
+			workspaceInfo, err := buildWorkspaceInfo(ctx, w)
 			if err != nil {
 				return nil, err
 			}
 
-			return &m, nil
+			return &workspaceInfo, nil
 		},
 	)
 
 	clusterInfoCache = newMemoryCache(
 		5 * time.Minute,
 		func(ctx context.Context) (*map[string]*clusterInfo, error) {
-			m, err := buildClusterInfoByIdMap(ctx, a)
+			m, err := buildClusterInfoByIdMap(ctx, w)
 			if err != nil {
 				return nil, err
 			}
@@ -115,7 +117,7 @@ func initInfoByIdCaches(
 	warehouseInfoCache = newMemoryCache(
 		5 * time.Minute,
 		func(ctx context.Context) (*map[string]*warehouseInfo, error) {
-			m, err := buildWarehouseInfoByIdMap(ctx, a)
+			m, err := buildWarehouseInfoByIdMap(ctx, w)
 			if err != nil {
 				return nil, err
 			}
@@ -125,106 +127,87 @@ func initInfoByIdCaches(
 	)
 }
 
-func buildWorkspaceInfoByIdMap(
+func buildWorkspaceInfo(
 	ctx context.Context,
-	a *databricksSdk.AccountClient,
-) (map[int64]*workspaceInfo, error) {
-	log.Debugf("building workspace info by ID map...")
+	w *databricksSdk.WorkspaceClient,
+) (*workspaceInfo, error) {
+	log.Debugf("building workspace info...")
 
-	workspaces, err := a.Workspaces.List(ctx)
+	workspaceId, err := w.CurrentWorkspaceID(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	m := make(map[int64]*workspaceInfo)
-
-	for _, workspace := range workspaces {
-		workspaceInfo := &workspaceInfo{}
-		workspaceInfo.name = workspace.WorkspaceName
-
-		m[workspace.WorkspaceId] = workspaceInfo
+	url, err := url.Parse(w.Config.Host)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"could not parse workspace URL %s: %v",
+			w.Config.Host,
+			err,
+		)
 	}
 
-	return m, nil
+	urlStr := url.String()
+	hostname := url.Hostname()
+
+	log.Debugf(
+		"workspace ID: %d ; workspace URL: %s ; workspace instance name: %s",
+		workspaceId,
+		urlStr,
+		hostname,
+	)
+
+	return &workspaceInfo{
+		workspaceId,
+		urlStr,
+		hostname,
+	}, nil
 }
 
-func getWorkspaceInfoById(
-	ctx context.Context,
-	workspaceIdStr string,
-) (*workspaceInfo, error) {
-	workspaceId, err := strconv.ParseInt(workspaceIdStr, 10, 64)
-	if err != nil {
-		return nil, fmt.Errorf("workspace ID is not an integer")
-	}
-
-	workspaceInfoMap, err := workspaceInfoCache.get(ctx)
+func getWorkspaceInfo(ctx context.Context) (*workspaceInfo, error) {
+	wi, err := workspaceInfoCache.get(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	workspaceInfo, ok := (*workspaceInfoMap)[workspaceId]
-	if ok {
-		return workspaceInfo, nil
-	}
-
-	return nil, nil
+	return *wi, nil
 }
 
 func buildClusterInfoByIdMap(
 	ctx context.Context,
-	a *databricksSdk.AccountClient,
+	w *databricksSdk.WorkspaceClient,
 ) (map[string]*clusterInfo, error) {
 	log.Debugf("building cluster info by ID map...")
 
-	workspaces, err := a.Workspaces.List(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	m := map[string]*clusterInfo{}
 
-	for _, workspace := range workspaces {
-		w, err := a.GetWorkspaceClient(workspace)
+	log.Debugf("listing clusters for workspace host %s", w.Config.Host)
+
+	all := w.Clusters.List(
+		ctx,
+		databricksSdkCompute.ListClustersRequest{ PageSize: 100 },
+	)
+
+	for ; all.HasNext(ctx);  {
+		c, err := all.Next(ctx)
 		if err != nil {
 			return nil, err
 		}
 
-		log.Debugf("listing clusters for workspace %s", workspace.WorkspaceName)
-
-		all := w.Clusters.List(
-			ctx,
-			databricksSdkCompute.ListClustersRequest{ PageSize: 100 },
+		log.Debugf(
+			"cluster ID: %s ; cluster name: %s",
+			c.ClusterId,
+			c.ClusterName,
 		)
 
-		for ; all.HasNext(ctx);  {
-			c, err := all.Next(ctx)
-			if err != nil {
-				return nil, err
-			}
+		clusterInfo := &clusterInfo{}
+		clusterInfo.name = c.ClusterName
+		clusterInfo.source = string(c.ClusterSource)
+		clusterInfo.creator = c.CreatorUserName
+		clusterInfo.singleUserName = c.SingleUserName
+		clusterInfo.instancePoolId = c.InstancePoolId
 
-			log.Debugf(
-				"cluster ID: %s ; cluster name: %s",
-				c.ClusterId,
-				c.ClusterName,
-			)
-
-			// namespace cluster ids with workspace id, just in case cluster ids
-			// can be the same in different workspaces
-			id := fmt.Sprintf(
-				"%d.%s",
-				workspace.WorkspaceId,
-				c.ClusterId,
-			)
-
-			clusterInfo := &clusterInfo{}
-			clusterInfo.name = c.ClusterName
-			clusterInfo.source = string(c.ClusterSource)
-			clusterInfo.creator = c.CreatorUserName
-			clusterInfo.singleUserName = c.SingleUserName
-			clusterInfo.instancePoolId = c.InstancePoolId
-
-			m[id] = clusterInfo
-		}
+		m[c.ClusterId] = clusterInfo
 	}
 
 	return m, nil
@@ -232,28 +215,14 @@ func buildClusterInfoByIdMap(
 
 func getClusterInfoById(
 	ctx context.Context,
-	workspaceIdStr string,
-	clusterIdStr string,
+	clusterId string,
 ) (*clusterInfo, error) {
-	workspaceId, err := strconv.ParseInt(workspaceIdStr, 10, 64)
-	if err != nil {
-		return nil, fmt.Errorf("workspace ID is not an integer")
-	}
-
-	// namespace cluster ids with workspace id, just in case cluster ids can be
-	// the same in different workspaces
-	id := fmt.Sprintf(
-		"%d.%s",
-		workspaceId,
-		clusterIdStr,
-	)
-
 	clusterInfoMap, err := clusterInfoCache.get(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	clusterInfo, ok := (*clusterInfoMap)[id]
+	clusterInfo, ok := (*clusterInfoMap)[clusterId]
 	if ok {
 		return clusterInfo, nil
 	}
@@ -263,59 +232,36 @@ func getClusterInfoById(
 
 func buildWarehouseInfoByIdMap(
 	ctx context.Context,
-	a *databricksSdk.AccountClient,
+	w *databricksSdk.WorkspaceClient,
 ) (map[string]*warehouseInfo, error) {
 	log.Debugf("building warehouse info by ID map...")
 
-	workspaces, err := a.Workspaces.List(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	m := map[string]*warehouseInfo{}
 
-	for _, workspace := range workspaces {
-		w, err := a.GetWorkspaceClient(workspace)
+	log.Debugf("listing warehouses for workspace host %s", w.Config.Host)
+
+	all := w.Warehouses.List(
+		ctx,
+		databricksSql.ListWarehousesRequest{},
+	)
+
+	for ; all.HasNext(ctx); {
+		warehouse, err := all.Next(ctx)
 		if err != nil {
 			return nil, err
 		}
 
 		log.Debugf(
-			"listing warehouses for workspace %s",
-			workspace.WorkspaceName,
+			"warehouse ID: %s ; warehouse name: %s",
+			warehouse.Id,
+			warehouse.Name,
 		)
 
-		all := w.Warehouses.List(
-			ctx,
-			databricksSql.ListWarehousesRequest{},
-		)
+		warehouseInfo := &warehouseInfo{}
+		warehouseInfo.name = warehouse.Name
+		warehouseInfo.creator = warehouse.CreatorName
 
-		for ; all.HasNext(ctx); {
-			warehouse, err := all.Next(ctx)
-			if err != nil {
-				return nil, err
-			}
-
-			log.Debugf(
-				"warehouse ID: %s ; warehouse name: %s",
-				warehouse.Id,
-				warehouse.Name,
-			)
-
-			// namespace warehouse ids with workspace id, just in case warehouse
-			// ids can be the same in different workspaces
-			id := fmt.Sprintf(
-				"%d.%s",
-				workspace.WorkspaceId,
-				warehouse.Id,
-			)
-
-			warehouseInfo := &warehouseInfo{}
-			warehouseInfo.name = warehouse.Name
-			warehouseInfo.creator = warehouse.CreatorName
-
-			m[id] = warehouseInfo
-		}
+		m[warehouse.Id] = warehouseInfo
 	}
 
 	return m, nil
@@ -323,28 +269,14 @@ func buildWarehouseInfoByIdMap(
 
 func getWarehouseInfoById(
 	ctx context.Context,
-	workspaceIdStr string,
-	warehouseIdStr string,
+	warehouseId string,
 ) (*warehouseInfo, error) {
-	workspaceId, err := strconv.ParseInt(workspaceIdStr, 10, 64)
-	if err != nil {
-		return nil, fmt.Errorf("workspace ID is not an integer")
-	}
-
-	// namespace warehouse ids with workspace id, just in case warehouse ids can
-	// be the same in different workspaces
-	id := fmt.Sprintf(
-		"%d.%s",
-		workspaceId,
-		warehouseIdStr,
-	)
-
 	warehouseInfoMap, err := warehouseInfoCache.get(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	warehouseInfo, ok := (*warehouseInfoMap)[id]
+	warehouseInfo, ok := (*warehouseInfoMap)[warehouseId]
 	if ok {
 		return warehouseInfo, nil
 	}

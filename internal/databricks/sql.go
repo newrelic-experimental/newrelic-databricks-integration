@@ -23,15 +23,15 @@ func executeStatementOnWarehouse(
 	defaultCatalog string,
 	defaultSchema string,
 	stmt string,
+	params []databricksSql.StatementParameterListItem,
 ) ([][]string, error) {
-	// @todo: pass catalog/schema as parameters instead of hard coding
-
 	req := databricksSql.ExecuteStatementRequest{
 		WarehouseId: warehouseId,
 		Catalog: defaultCatalog,
 		Schema: defaultSchema,
 		Statement: stmt,
 		WaitTimeout: "0s",
+		Parameters: params,
 	}
 
 	log.Debugf(
@@ -44,6 +44,11 @@ func executeStatementOnWarehouse(
 	execResp, err := w.StatementExecution.ExecuteStatement(ctx, req)
 	if err != nil {
 		return nil, err
+	}
+
+	if execResp.Status != nil &&
+		execResp.Status.State == databricksSql.StatementStateFailed {
+		return nil, fmt.Errorf(execResp.Status.Error.Message)
 	}
 
 	statementId := execResp.StatementId
@@ -192,6 +197,11 @@ func getStatementStatus(
 	if err != nil {
 		// api call error
 		return nil, 0, false, err
+	}
+
+	if getResp.Status == nil {
+		// guard against nil status (shouldn't happen)
+		return nil, 0, false, fmt.Errorf("status unexpectedly nil on response")
 	}
 
 	status := getResp.Status.State

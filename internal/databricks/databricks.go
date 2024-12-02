@@ -65,16 +65,8 @@ func InitPipelines(
 	}
 
 	if collectUsageData {
-		// Create an account client
-		// We need an account client to resolve workspace/cluster/warehouse IDs
-		// to names
-		a, err := getAccountClient()
-		if err != nil {
-			return err
-		}
-
 		// Initialize caches
-		initInfoByIdCaches(a)
+		initInfoByIdCaches(w)
 
 		// We need a sql warehouse ID to run the SQL queries
 		warehouseId := viper.GetString("databricks.usage.warehouseId")
@@ -124,7 +116,6 @@ func InitPipelines(
 		usageReceiver := NewDatabricksQueryReceiver(
 			"databricks-usage-receiver",
 			w,
-			a,
 			warehouseId,
 			"system",
 			"billing",
@@ -219,43 +210,6 @@ func getWorkspaceClient() (*databricksSdk.WorkspaceClient, error) {
 	return w, nil
 }
 
-func getAccountClient() (*databricksSdk.AccountClient, error) {
-	// Databricks config
-	databricksConfig := &databricksSdk.Config{}
-
-	/*
-	 * If the user explicitly specifies a host in the config, use that.
-	 * Otherwise the user can specify using an SDK-supported mechanism.
-	 */
-	databricksAccountHost := viper.GetString("databricks.accountHost")
-	if databricksAccountHost != "" {
-		databricksConfig.Host = databricksAccountHost
-	}
-
-	/*
-	 * If the user explicitly specifies an account ID in the config, use that.
-	 * Otherwise the user can specify using an SDK-supported mechanism.
-	 */
-	 databricksAccountId := viper.GetString("databricks.accountId")
-	 if databricksAccountId != "" {
-		 databricksConfig.AccountID = databricksAccountId
-	 }
-
-	// Configure authentication
-	err := configureAccountAuth(databricksConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	// Create the account client
-	a, err := databricksSdk.NewAccountClient(databricksConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	return a, nil
-}
-
 func configureAuth(config *databricksSdk.Config) error {
 	/*
 	 * Any of the variables below can be specified in any of the ways that
@@ -312,55 +266,6 @@ func configureAuth(config *databricksSdk.Config) error {
 	 * authentication types via SDK-supported mechanisms or any other
 	 * SDK-supported authentication types via the corresponding SDK-supported
 	 * mechanisms.
-	 */
-
-	return nil
-}
-
-func configureAccountAuth(config *databricksSdk.Config) error {
-	/*
-	 * Any of the variables below can be specified in any of the ways that
-	 * are supported by the Databricks SDK so if we don't explicitly find one
-	 * in the config file, it's not an error.  We assume the user has used one
-	 * of the SDK mechanisms and if they haven't the SDK will return an error at
-	 * config time or when a request fails.
-	 */
-
-	/*
-	 * Account authentication only supports OAuth M2M with a service prinicipal
-	 * because PATs are workspace scoped.
-	 */
-
-	databricksOAuthClientId := viper.GetString("databricks.oauthClientId")
-	if databricksOAuthClientId != "" {
-		/*
-		 * If an OAuth client ID was in our config we will at this point tell
-		 * the SDK to use OAuth M2M authentication. The secret may come from our
-		 * config but can still come from any of the supported SDK mechanisms.
-		 * So if we don't find the secret in our config file, it's not an error.
-		 * Note that because we are forcing OAuth M2M authentication now, the
-		 * SDK will not try other mechanisms if OAuth M2M authentication is
-		 * unsuccessful.
-		 */
-		config.ClientID = databricksOAuthClientId
-		config.Credentials = databricksSdkConfig.M2mCredentials{}
-
-		databricksOAuthClientSecret := viper.GetString(
-			"databricks.oauthClientSecret",
-		)
-		if databricksOAuthClientSecret != "" {
-			config.ClientSecret = databricksOAuthClientSecret
-		}
-
-		return nil
-	}
-
-	/*
-	 * At this point, it's up to the user to specify authentication via an
-	 * SDK-supported mechanism. This does not preclude the user from using OAuth
-	 * M2M authentication. The user can still use this authentication type via
-	 * SDK-supported mechanisms or any other SDK-supported authentication types
-	 * via the corresponding SDK-supported mechanisms.
 	 */
 
 	return nil
