@@ -41,6 +41,9 @@ databricks:
       includeIdentityMetadata: false
       includeRunId: false
       startOffset: 86400
+  pipelines:
+    logs:
+      enabled: true
 
 spark:
   webUiUrl: http://localhost:4040

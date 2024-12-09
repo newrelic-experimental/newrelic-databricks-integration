@@ -5,7 +5,7 @@ go 1.21
 toolchain go1.22.4
 
 require (
-	github.com/databricks/databricks-sdk-go v0.46.0
+	github.com/databricks/databricks-sdk-go v0.52.0
 	github.com/newrelic/newrelic-client-go/v2 v2.45.0
 	github.com/newrelic/newrelic-labs-sdk/v2 v2.1.0
 )
