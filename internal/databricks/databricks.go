@@ -179,6 +179,29 @@ func InitPipelines(
 		i.AddComponent(mp)
 	}
 
+	collectPipelineEventLogs := true
+	if viper.IsSet("databricks.pipelines.logs.enabled") {
+		collectPipelineEventLogs = viper.GetBool(
+			"databricks.pipelines.logs.enabled",
+		)
+	}
+
+	if collectPipelineEventLogs {
+		databricksPipelineEventsReceiver :=
+			NewDatabricksPipelineEventsReceiver(i, w, tags)
+
+		// Create a logs pipeline for the event logs
+		lp := pipeline.NewLogsPipeline(
+			"databricks-pipeline-event-logs-pipeline",
+		)
+		lp.AddReceiver(databricksPipelineEventsReceiver)
+		lp.AddExporter(newRelicExporter)
+
+		log.Debugf("initializing Databricks pipeline event logs pipeline")
+
+		i.AddComponent(lp)
+	}
+
 	return nil
 }
 

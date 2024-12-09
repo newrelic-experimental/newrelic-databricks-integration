@@ -29,6 +29,7 @@ func main() {
 		integration.WithApiKey(),
 		integration.WithEvents(ctx),
 		integration.WithLastUpdate(),
+		integration.WithLogs(ctx),
 	)
 	fatalIfErr(err)
 

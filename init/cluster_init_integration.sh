@@ -33,7 +33,23 @@ databricks:
   accessToken: "$NEW_RELIC_DATABRICKS_ACCESS_TOKEN"
   oauthClientId: "$NEW_RELIC_DATABRICKS_OAUTH_CLIENT_ID"
   oauthClientSecret: "$NEW_RELIC_DATABRICKS_OAUTH_CLIENT_SECRET"
-  sparkMetrics: false
+  spark:
+    enabled: false
+  usage:
+    enabled: $NEW_RELIC_DATABRICKS_USAGE_ENABLED
+    warehouseId: "$NEW_RELIC_DATABRICKS_SQL_WAREHOUSE"
+    includeIdentityMetadata: false
+    runTime: 02:00:00
+  jobs:
+    runs:
+      enabled: $NEW_RELIC_DATABRICKS_JOB_RUNS_ENABLED
+      metricPrefix: databricks.
+      includeIdentityMetadata: false
+      includeRunId: false
+      startOffset: 86400
+  pipelines:
+    logs:
+      enabled: $NEW_RELIC_DATABRICKS_PIPELINE_EVENT_LOGS_ENABLED
 spark:
   webUiUrl: http://{UI_HOST}:{UI_PORT}
   metricPrefix: spark.
