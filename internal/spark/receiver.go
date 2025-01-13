@@ -337,6 +337,26 @@ func collectSparkAppJobMetrics(
 
 		// Write all the things.
 
+		if job.CompletionTime != "" {
+			jobDuration, err := calcDateDifferenceMillis(
+				job.SubmissionTime,
+				job.CompletionTime,
+			)
+			if err != nil {
+				log.Warnf("could not calculate job duration: %v", err)
+
+				continue
+			}
+
+			writeGauge(
+				metricPrefix,
+				"app.job.duration",
+				jobDuration,
+				attrs,
+				writer,
+			)
+		}
+
 		writeGauge(
 			metricPrefix,
 			"app.job.indices.completed",
@@ -355,7 +375,7 @@ func collectSparkAppJobMetrics(
 			writer,
 		)
 
-		attrs["sparkAppStageStatus"] = "completed"
+		attrs["sparkAppStageStatus"] = "complete"
 
 		writeGauge(
 			metricPrefix,
@@ -397,7 +417,7 @@ func collectSparkAppJobMetrics(
 			writer,
 		)
 
-		attrs["sparkAppTaskStatus"] = "completed"
+		attrs["sparkAppTaskStatus"] = "complete"
 
 		writeGauge(
 			metricPrefix,
@@ -521,8 +541,8 @@ func collectSparkAppStageMetrics(
 		attrs["sparkAppStageStatus"] = stageStatus
 		// @TODO: The attributes below may cause high cardinality. Further
 		// investigation is needed.
-		//attrs["sparkAppStageId"] = stage.StageId
-		//attrs["sparkAppStageAttemptId"] = stage.AttemptId
+		attrs["sparkAppStageId"] = stage.StageId
+		attrs["sparkAppStageAttemptId"] = stage.AttemptId
 		//attrs["sparkAppStageSchedulingPool"] = stage.SchedulingPool
 		//attrs["sparkAppStageResourceProfileId"] = stage.ResourceProfileId
 
@@ -539,6 +559,26 @@ func collectSparkAppStageMetrics(
 		}
 
 		// Write all the things.
+
+		if stage.CompletionTime != "" {
+			stageDuration, err := calcDateDifferenceMillis(
+				stage.FirstTaskLaunchedTime,
+				stage.CompletionTime,
+			)
+			if err != nil {
+				log.Warnf("could not calculate stage duration: %v", err)
+
+				continue
+			}
+
+			writeGauge(
+				metricPrefix,
+				"app.stage.duration",
+				stageDuration,
+				attrs,
+				writer,
+			)
+		}
 
 		writeGauge(
 			metricPrefix,
@@ -831,8 +871,8 @@ func collectSparkAppStageMetrics(
 		}
 
 		writePeakMemoryMetrics(
-			metricPrefix + "app.stage.memory.peak.",
-			&stage.PeakMemoryMetrics,
+			metricPrefix + "app.stage.executor.memory.peak.",
+			&stage.PeakExecutorMetrics,
 			attrs,
 			writer,
 		)
@@ -972,8 +1012,8 @@ func writeStageTaskMetrics(
 	taskMetricAttrs["sparkAppTaskSpeculative"] = task.Speculative
 	// @TODO: The attributes below may cause high cardinality. Further
 	// investigation is needed.
-	//attrs["sparkAppTaskId"] = task.TaskId
-	//attrs["sparkAppTaskAttempt"] = task.Attempt
+	taskMetricAttrs["sparkAppTaskId"] = task.TaskId
+	taskMetricAttrs["sparkAppTaskAttempt"] = task.Attempt
 	//attrs["sparkAppTaskPartitionId"] = task.PartitionId
 
 	writeGauge(
