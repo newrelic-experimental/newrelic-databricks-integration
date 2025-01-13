@@ -250,7 +250,7 @@ type SparkStage struct {
 	Tasks								map[string]SparkTask `json:"tasks"`
 	ExecutorSummary						map[string]SparkExecutorSummary `json:"executorSummary"`
 	ResourceProfileId   				int 			`json:"resourceProfileId"`
-	PeakMemoryMetrics SparkExecutorPeakMemoryMetrics 	`json:"peakMemoryMetrics"`
+	PeakExecutorMetrics SparkExecutorPeakMemoryMetrics 	`json:"peakExecutorMetrics"`
 	ShuffleMergersCount  				int  			`json:"shuffleMergersCount"`
 }
 
