@@ -145,27 +145,24 @@ func (d *DatabricksPipelineEventsReceiver) PollLogs(
 			if pipelineEvent.Origin != nil {
 				origin := pipelineEvent.Origin
 
-				attrs["databricksPipelineEventBatchId"] = origin.BatchId
-				attrs["databricksPipelineEventCloud"] = origin.Cloud
-				attrs["databricksPipelineEventClusterId"] = origin.ClusterId
-				attrs["databricksPipelineEventDatasetName"] = origin.DatasetName
-				attrs["databricksPipelineEventFlowId"] = origin.FlowId
-				attrs["databricksPipelineEventFlowName"] = origin.FlowName
+				attrs["databricksPipelineFlowBatchId"] = origin.BatchId
+				attrs["databricksCloud"] = origin.Cloud
+				attrs["databricksClusterId"] = origin.ClusterId
+				attrs["databricksPipelineDatasetName"] = origin.DatasetName
+				attrs["databricksPipelineFlowId"] = origin.FlowId
+				attrs["databricksPipelineFlowName"] = origin.FlowName
 				attrs["databricksPipelineEventHost"] = origin.Host
-				attrs["databricksPipelineEventMaintenanceId"] =
-					origin.MaintenanceId
-				attrs["databricksPipelineEventMaterializationName"] =
+				attrs["databricksPipelineMaintenanceId"] = origin.MaintenanceId
+				attrs["databricksPipelineMaterializationName"] =
 					origin.MaterializationName
-				attrs["databricksPipelineEventOrgId"] = origin.OrgId
-				attrs["databricksPipelineEventPipelineId"] = origin.PipelineId
-				attrs["databricksPipelineEventPipelineName"] =
-					origin.PipelineName
-				attrs["databricksPipelineEventRegion"] = origin.Region
-				attrs["databricksPipelineEventRequestId"] = origin.RequestId
-				attrs["databricksPipelineEventTableId"] = origin.TableId
-				attrs["databricksPipelineEventUcResourceId"] =
-					origin.UcResourceId
-				attrs["databricksPipelineEventUpdateId"] = origin.UpdateId
+				attrs["databricksOrgId"] = origin.OrgId
+				attrs["databricksPipelineId"] = origin.PipelineId
+				attrs["databricksPipelineName"] = origin.PipelineName
+				attrs["databricksCloudRegion"] = origin.Region
+				attrs["databricksPipelineRequestId"] = origin.RequestId
+				attrs["databricksDeltaTableId"] = origin.TableId
+				attrs["databricksUcResourceId"] = origin.UcResourceId
+				attrs["databricksPipelineUpdateId"] = origin.UpdateId
 			}
 
 			writer <- model.NewLog(

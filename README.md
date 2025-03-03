@@ -40,6 +40,7 @@ Databricks) and/or Spark telemetry from any Spark deployment. See the
    * [Apache Spark Data](#apache-spark-data)
    * [Consumption & Cost Data](#consumption--cost-data)
    * [Job Run Data](#job-run-data)
+   * [Pipeline Update Metrics](#pipeline-update-metrics)
    * [Pipeline Event Logs](#pipeline-event-logs)
 * [Building](#building)
    * [Coding Conventions](#coding-conventions)
@@ -895,6 +896,16 @@ more details.
 
 ##### Databricks Pipeline configuration
 
+###### `metrics`
+
+| Description | Valid Values | Required | Default |
+| --- | --- | --- | --- |
+| The root node for the set of [Databricks Pipeline Update Metrics configuration](#databricks-pipeline-update-metrics-configuration) parameters | YAML Mapping | N | N/a |
+
+This element groups together the configuration parameters to [configure](#databricks-pipeline-update-metrics-configuration)
+the Databricks collector settings related to the collection of Databricks Delta
+Live Tables [pipeline update metrics](#pipeline-update-metrics).
+
 ###### `logs`
 
 | Description | Valid Values | Required | Default |
@@ -930,6 +941,98 @@ duplicate New Relic log entries will be created for each Databricks Delta Live
 Tables [pipeline event log](#pipeline-event-logs) entry, making troubleshooting
 challenging and affecting product features that rely on signal integrity such as
 [anomaly detection](https://docs.newrelic.com/docs/alerts/create-alert/set-thresholds/anomaly-detection/).
+
+##### Databricks pipeline update metrics configuration
+
+The Databricks pipeline update metrics configuration parameters are used to
+configure Databricks collector settings related to the collection of Databricks
+Delta Live Tables [pipeline update metrics](#pipeline-update-metrics).
+
+###### Databricks pipeline update metrics `enabled`
+
+| Description | Valid Values | Required | Default |
+| --- | --- | --- | --- |
+| Flag to enable automatic collection of Databricks Delta Live Tables [pipeline update metrics](#pipeline-update-metrics) | `true` / `false` | N | `true` |
+
+By default, when the Databricks collector is enabled, it will automatically
+collect Databricks Delta Live Tables [pipeline update metrics](#pipeline-update-metrics).
+
+This flag can be used to disable the collection of Databricks Delta Live Tables
+[pipeline update metrics](#pipeline-update-metrics) by the Databricks collector.
+This may be useful when running multiple instances of the New Relic Databricks
+integration against the same Databricks [workspace](https://docs.databricks.com/en/getting-started/concepts.html#accounts-and-workspaces).
+In this scenario, the collection of Databricks Delta Live Tables [pipeline update metrics](#pipeline-update-metrics)
+should _only_ be enabled on a single instance of the integration. Otherwise,
+Databricks Delta Live Tables [pipeline update metrics](#pipeline-update-metrics)
+will be recorded more than once, making troubleshooting challenging and
+affecting product features that use these metrics (e.g. [dashboards](https://docs.newrelic.com/docs/query-your-data/explore-query-data/dashboards/introduction-dashboards/)
+and [alerts](https://docs.newrelic.com/docs/alerts/overview/)).
+
+###### Databricks pipeline update metrics `metricPrefix`
+
+| Description | Valid Values | Required | Default |
+| --- | --- | --- | --- |
+| A prefix to prepend to Databricks [pipeline update metric](#pipeline-update-metrics) names | string | N | N/a |
+
+This parameter specifies a prefix that will be prepended to each Databricks
+[pipeline update metric](#pipeline-update-metrics) name when the metric is
+exported to New Relic.
+
+For example, if this parameter is set to `databricks.`, then the full name of
+the metric representing the duration of a pipeline update
+(`pipeline.update.duration`) will be
+`databricks.pipeline.update.duration`.
+
+Note that it is not recommended to leave this value empty as the metric names
+without a prefix may be ambiguous.
+
+###### Databricks pipeline update metrics `includeUpdateId`
+
+| Description | Valid Values | Required | Default |
+| --- | --- | --- | --- |
+| Flag to enable inclusion of the pipeline update ID in the `databricksPipelineUpdateId` attribute on all [pipeline update metrics](#pipeline-update-metrics) | `true` / `false` | N | `false` |
+
+By default, the Databricks collector will not include pipeline update IDs on any
+of the [pipeline update metrics](#pipeline-update-metrics) in order to avoid
+possible violations of [metric cardinality limits](https://docs.newrelic.com/docs/data-apis/convert-to-metrics/creating-metric-rules-requirements-tips/#attributes-limit)
+due to the fact that update IDs have high cardinality because they are unique
+across all pipeline updates.
+
+This flag can be used to enable the inclusion of the pipeline update ID in the
+`databricksPipelineUpdateId` attribute on all [pipeline update metrics](#pipeline-update-metrics).
+
+When enabled, use the [Limits UI](https://docs.newrelic.com/docs/data-apis/manage-data/view-system-limits/#limits-ui)
+and/or create a [dashboard](https://docs.newrelic.com/docs/data-apis/manage-data/query-limits/#create-a-dashboard-to-view-your-limit-status)
+in order to monitor your limit status. Additionally, [set alerts on resource metrics](https://docs.newrelic.com/docs/data-apis/manage-data/query-limits/#set-alerts-on-resource-metrics)
+to provide updates on limits changes.
+
+###### Databricks pipeline update metrics `startOffset`
+
+| Description | Valid Values | Required | Default |
+| --- | --- | --- | --- |
+| Offset (in seconds) from the current time to use for calculating the earliest pipeline event timestamp to match when listing pipeline events | number | N | 86400 (1 day) |
+
+This parameter specifies an offset, in seconds, that can be used to tune the
+collector's performance by limiting the number of pipeline events to return by
+constraining the timestamp of pipeline events to match to be greather than a
+particular time in the past calculated as an offset from the current time.
+
+See the section [`startOffset` Configuration](#pipeline-startoffset-configuration) for
+more details.
+
+###### Databricks pipeline update metrics `intervalOffset`
+
+| Description | Valid Values | Required | Default |
+| --- | --- | --- | --- |
+| Offset (in seconds) to use for delaying the collection of pipeline events to account for lag in the [list pipeline events API](https://docs.databricks.com/api/workspace/pipelines/listpipelineevents) | number | N | 5 |
+
+This parameter specifies an offset, in seconds, that the collector will use to
+delay collection of pipeline events in order to account for potential lag in the
+[list pipeline events endpoint](https://docs.databricks.com/api/workspace/pipelines/listpipelineevents)
+of the [Databricks ReST API](https://docs.databricks.com/api/workspace/introduction)
+
+See the section [`intervalOffset` Configuration](#pipeline-intervaloffset-configuration)
+for more details.
 
 ##### Spark configuration
 
@@ -2209,6 +2312,401 @@ statements to use to visualize the data.
 
 ![Sample job runs dashboard image](./examples/job-runs-dashboard.png)
 
+### Pipeline Update Metrics
+
+The New Relic Databricks integration can collect telemetry about
+[Databricks Delta Live Tables Pipeline](https://docs.databricks.com/en/delta-live-tables/develop-pipelines.html)
+[updates](https://docs.databricks.com/en/delta-live-tables/updates.html), such
+as [flow](https://docs.databricks.com/aws/en/delta-live-tables/flows) durations,
+[flow](https://docs.databricks.com/aws/en/delta-live-tables/flows) data quality
+metrics, and [update](https://docs.databricks.com/en/delta-live-tables/updates.html)
+durations. This feature is enabled by default and can be enabled or disabled
+using the [Databricks pipeline update metrics `enabled`](#databricks-pipeline-update-metrics-enabled)
+flag in the [integration configuration](#configuration).
+
+**NOTE:** Some of the text below is sourced from the
+[Databricks Delta Live Tables pipeline event log schema documentation](https://docs.databricks.com/en/delta-live-tables/observability.html#event-log-schema)
+and the [Databricks SDK Go module documentation](https://pkg.go.dev/github.com/databricks/databricks-sdk-go).
+
+#### Pipeline `startOffset` Configuration
+
+On each run, the integration uses the [Databricks ReST API](https://docs.databricks.com/api/workspace/introduction)
+to retrieve pipeline events for all [Delta Live Tables Pipelines](https://docs.databricks.com/en/delta-live-tables/develop.html).
+By default, the [Databricks ReST API](https://docs.databricks.com/api/workspace/introduction)
+endpoint for [listing pipeline events](https://docs.databricks.com/api/workspace/pipelines/listpipelineevents)
+returns a paginated list of _all_ historical pipeline events sorted in
+descending order by timestamp. On systems with many pipelines or complex
+pipelines with many flows, there may be a large number of pipeline events to
+retrieve and process, impacting the performance of the collector. To account for
+this, the integration provides the [`startOffset`](#databricks-pipeline-update-metrics-startoffset)
+configuration parameter. This parameter is used to tune the performance of the
+integration by constraining the timestamp of pipeline events to match to be
+greater than a particular time in the past calculated as an offset from the
+current time and thus, limiting the number of pipeline events to return.
+
+The effect of this behavior is that only pipeline events which have a timestamp
+_at_ or _after_ the calculated start time will be returned on the API call. For
+example, using the default [`startOffset`](#databricks-pipeline-update-metrics-startoffset)
+(86400 seconds or 24 hours), only pipeline events which occurred within the last
+24 hours will be returned. This means that pipeline events that occurred more
+than 24 hours ago will not be returned _even if_ the associated pipeline update
+is not yet complete. This can lead to missing flow or update metrics. Therefore,
+it is important to carefully select a value for the [`startOffset`](#databricks-pipeline-update-metrics-startoffset)
+parameter that will account for long-running pipeline updates without degrading
+the performance of the integration.
+
+#### Pipeline `intervalOffset` Configuration
+
+The integration uses the [list pipeline events endpoint](https://docs.databricks.com/api/workspace/pipelines/listpipelineevents)
+of the [Databricks ReST API](https://docs.databricks.com/api/workspace/introduction)
+to retrieve pipeline log events. There can be a slight lag time between when a
+pipeline log event is emitted and when it is available in the [API](https://docs.databricks.com/api/workspace/introduction).
+The [`intervalOffset`](#databricks-pipeline-update-metrics-intervaloffset)
+configuration parameter can be used to delay the processing of pipeline log
+events in order to account for this lag. The default value for the
+[`intervalOffset`](#databricks-pipeline-update-metrics-intervaloffset)
+configuration parameter is 5 seconds.
+
+To help illustrate, here is the processing behavior for the default settings
+(60 second [collection interval](#interval) and 5 second [interval offset](#databricks-pipeline-update-metrics-intervaloffset)):
+
+* on the first minute, the integration will process all pipeline log events from 60 seconds ago until 55 seconds ago
+* on the second interval, the integration will process all pipeline log events from 55 seconds ago until 1:55
+* on the third interval, the integration will process all pipeline log events from 1:55 until 2:55
+* and so on
+
+#### Pipeline Update Metric Data
+
+Pipeline update metric data is sent to New Relic as [dimensional metrics](https://docs.newrelic.com/docs/data-apis/understand-data/new-relic-data-types/#dimensional-metrics).
+The following metrics and attributes (dimensions) are provided.
+
+##### Pipeline update metrics
+
+| Metric Name | Metric Type | Description |
+| --- | --- | --- |
+| `pipeline.pipelines` | gauge | Pipeline [counts](#pipeline-update-and-flow-counts) per state |
+| `pipeline.updates` | gauge | Pipeline update [counts](#pipeline-update-and-flow-counts) per status |
+| `pipeline.flows` | gauge | Pipeline flow [counts](#pipeline-update-and-flow-counts) per status |
+| `pipeline.update.duration` | gauge | Total [duration](#pipeline-update-and-flow-durations) (in milliseconds) of the pipeline update identified by the id in the `databricksPipelineUpdateId` attribute |
+| `pipeline.update.duration.wait` | gauge | [Duration](#pipeline-update-and-flow-durations) (in milliseconds) the pipeline update identified by the id in the `databricksPipelineUpdateId` attribute spent in the `WAITING_FOR_RESOURCES` [state](#pipeline-update-status) |
+| `pipeline.update.duration.runTime` | gauge | [Duration](#pipeline-update-and-flow-durations) (in milliseconds) the pipeline update identified by the id in the `databricksPipelineUpdateId` attribute spent actually running |
+| `pipeline.flow.duration` | gauge | Total [duration](#pipeline-update-and-flow-durations) (in milliseconds) of the pipeline flow named in the `databricksPipelineFlowName` attribute |
+| `pipeline.flow.duration.queue` | gauge | [Duration](#pipeline-update-and-flow-durations) (in milliseconds) the pipeline flow named in the `databricksPipelineFlowName` attribute spent in the `QUEUED` [state](#pipeline-flow-status) |
+| `pipeline.flow.duration.plan` | gauge | [Duration](#pipeline-update-and-flow-durations) (in milliseconds) the pipeline flow named in the `databricksPipelineFlowName` attribute spent in the `PLANNING` [state](#pipeline-flow-status) |
+| `pipeline.flow.backlogBytes` | gauge | Number of bytes present in the backlog of the flow named in the `databricksPipelineFlowName` attribute |
+| `pipeline.flow.backlogFiles` | gauge | Number of files that exist in the backlog of the flow named in the `databricksPipelineFlowName` attribute |
+| `pipeline.flow.rowsWritten` | gauge | Number of rows output by the flow named in the `databricksPipelineFlowName` attribute |
+| `pipeline.flow.recordsDropped` | gauge | Number of records dropped by the flow named in the `databricksPipelineFlowName` attribute |
+| `pipeline.flow.expectation.recordsPassed` | gauge | Number of records that passed the expectation named in the `databricksPipelineFlowExpectationName` attribute for the dataset named in the `databricksPipelineDatasetName` attribute |
+| `pipeline.flow.expectation.recordsFailed` | gauge | Number of records that failed the expectation named in the `databricksPipelineFlowExpectationName` attribute for the dataset named in the `databricksPipelineDatasetName` attribute |
+
+##### Pipeline update attributes
+
+| Attribute Name | Data Type | Description |
+| --- | --- | --- |
+| `databricksPipelineId` | string | The unique UUID of the pipeline associated with the update. Included on all pipeline update metrics. |
+| `databricksPipelineName` | string | The name of the pipeline associated with the update. Included on all pipeline update metrics. |
+| `databricksPipelineState` | string | The [state](#pipeline-states) of the pipeline associated with the update. Only included on the `pipeline.pipelines` metric. |
+| `databricksClusterId` | string | The ID of the cluster where the event associated with the metric originated. Included on all pipeline update metrics, when available. |
+| `databricksPipelineUpdateId` | string | The unique UUID of the pipeline update. Included on all pipeline update metrics if [`includeUpdateId`](#databricks-pipeline-update-metrics-includeupdateid) is set to `true` |
+| `databricksPipelineUpdateStatus` | string | The [status](#pipeline-update-status) of the pipeline update. Included on the `pipeline.updates` and `pipeline.update.duration` metrics. |
+| `databricksPipelineFlowId` | string | The unique UUID of the pipeline flow associated with the metric. Included on all pipeline flow metrics, when available. |
+| `databricksPipelineFlowName` | string | The unique name of the pipeline flow associated with the metric. Included on all pipeline flow metrics. |
+| `databricksPipelineFlowStatus` | string | The [status](#pipeline-flow-status) of the pipeline flow. Included on all pipeline flow metrics. |
+| `databricksPipelineFlowExpectationName` | string | The name of the data quality expectation associated with the metric. Included on all pipeline flow expectation metrics. |
+| `databricksPipelineDatasetName` | string | The name of the dataset associated with the metric. Included on all pipeline flow expectation metrics. |
+
+##### Pipeline states
+
+Databricks pipelines can be in one of nine states.
+
+* `DELETED`
+* `DEPLOYING`
+* `FAILED`
+* `IDLE`
+* `RECOVERING`
+* `RESETTING`
+* `RUNNING`
+* `STARTING`
+* `STOPPING`
+
+The pipeline state is recorded in the `databricksPipelineState` attribute on the
+`pipeline.pipelines` metric only.
+
+##### Pipeline update status
+
+Databricks pipeline updates can have one of eleven statuses.
+
+* `CANCELED`
+* `COMPLETED`
+* `CREATED`
+* `FAILED`
+* `INITIALIZING`
+* `QUEUED`
+* `RESETTING`
+* `RUNNING`
+* `SETTING_UP_TABLES`
+* `STOPPING`
+* `WAITING_FOR_RESOURCES`
+
+The pipeline update status is recorded in the `databricksPipelineUpdateStatus`
+attribute on the `pipeline.updates` metric and the `pipeline.update.*` metrics.
+
+The statuses `CANCELED`, `COMPLETED`, and `FAILED` are considered update
+termination statuses.
+
+##### Pipeline flow status
+
+Databricks pipeline flows can have one of ten statuses.
+
+* `COMPLETED`
+* `EXCLUDED`
+* `FAILED`
+* `IDLE`
+* `PLANNING`
+* `QUEUED`
+* `RUNNING`
+* `SKIPPED`
+* `STARTING`
+* `STOPPED`
+
+The pipeline flow status is recorded in the `databricksPipelineFlowStatus`
+attribute on the `pipeline.flows` metric and the `pipeline.flow.*`
+metrics.
+
+The statuses `COMPLETED`, `EXCLUDED`, `FAILED`, `SKIPPED`, and `STOPPED` are
+considered flow termination statuses.
+
+##### Pipeline, update, and flow counts
+
+On each run, the integration records the following counts.
+
+* The count of all pipelines by [pipeline state](#pipeline-states) is recorded
+  in the metric `pipeline.pipelines` using the attribute
+  `databricksPipelineState` to indicate the [pipeline state](#pipeline-states).
+* The count of all pipeline updates by [update status](#pipeline-update-status)
+  is recorded in the metric `pipeline.updates` using the attribute
+  `databricksPipelineUpdateStatus` to indicate the [update status](#pipeline-update-status).
+
+  Pipeline updates with a termination [update status](#pipeline-update-status)
+  (`CANCELED`, `COMPLETED`, `FAILED`) are only counted if the corresponding
+  event occurred since the last run of the integration. Otherwise, these updates
+  are ignored. This is done to avoid counting terminated updates more than once.
+
+  Pipeline updates with a non-termination [update status](#pipeline-update-status)
+  are always counted.
+* The count of all pipeline flows by [flow status](#pipeline-flow-status) is
+  recorded in the metric `pipeline.flows` using the attribute
+  `databricksPipelineFlowStatus` to indicate the [flow status](#pipeline-flow-status).
+
+  Pipeline flows with a termination [flow status](#pipeline-flow-status)
+  (`COMPLETED`, `EXCLUDED`, `FAILED`, `SKIPPED`, `STOPPED`) are only counted if
+  the corresponding event occurred since the last run of the integration.
+  Otherwise, these flows are ignored. This is done to avoid counting terminated
+  flows more than once.
+
+  Pipeline flows with a non-termination [flow status](#pipeline-flow-status)
+  are always counted.
+
+##### Pipeline update and flow durations
+
+The Databricks integration records several update and flow durations. The
+different durations and the ways in which they are calculated are as follows.
+
+* `pipeline.update.duration`
+
+  The `pipeline.update.duration` metric represents the total duration of the
+  update from the time it is created until the time it terminates. After the
+  update is created but before it terminates, the duration recorded in this
+  metric is the "wall clock" time, calculated as the current time when the
+  metric is recorded by the integration minus the timestamp of the pipeline log
+  event where the update was created. Once the update terminates, the duration
+  recorded in this metric is calculated by subtracting the timestamp of the
+  pipeline log event where the update was created from the timestamp of the
+  pipeline log event where the update reached the termination [status](#pipeline-update-status).
+
+* `pipeline.update.duration.wait`
+
+  The `pipeline.update.duration.wait` metric represents the amount of time the
+  update spent waiting for resources (that is, while it has the
+  `WAITING_FOR_RESOURCES` [update status](#pipeline-update-status)). While the
+  update is waiting for resources, the duration recorded in this metric is the
+  "wall clock" time, calculated as the current time when the metric is recorded
+  by the integration minus the timestamp of the pipeline log event where the
+  update reached the `WAITING_FOR_RESOURCES` [status](#pipeline-update-status).
+  Once the update reaches the `INITIALIZING` [status](#pipeline-update-status)
+  or terminates, the duration recorded in this metric is calculated by
+  subtracting the timestamp of the pipeline log event where the update reached
+  the `WAITING_FOR_RESOURCES` [status](#pipeline-update-status) from the
+  timestamp of the pipeline log event where the update reached the
+  `INITIALIZING` [status](#pipeline-update-status) or terminated.
+
+* `pipeline.update.duration.runTime`
+
+  The `pipeline.update.duration.runTime` metric represents the amount of time
+  the update spent actually running, defined as the time the update reached the
+  `INITIALIZING` [update status](#pipeline-update-status) until the time the
+  update terminates. After the update has reached the `INITIALIZING` [status](#pipeline-update-status)
+  but before it terminates, the duration recorded in this metric is the
+  "wall clock" time, calculated as the current time when the metric is recorded
+  by the integration minus the timestamp of the pipeline log event where the
+  update reached the `INITIALIZING` [status](#pipeline-update-status).
+  Once the update terminates, the duration recorded in this metric is calculated
+  by subtracting the timestamp of the pipeline log event where the update
+  reached the `INITIALIZING` [status](#pipeline-update-status) from the
+  timestamp of the pipeline log event where the update terminated.
+
+* `pipeline.flow.duration`
+
+  The `pipeline.flow.duration` metric represents the total duration of the flow
+  from the time it starts until the time it terminates. After the flow starts
+  but before it terminates, the duration recorded in this metric is the
+  "wall clock" time, calculated as the current time when the metric is recorded
+  by the integration minus the timestamp of the pipeline log event where the
+  flow terminated. Once the flow terminates, the duration recorded in this
+  metric is calculated by subtracting the timestamp of the pipeline log event
+  where the flow started from the timestamp of the pipeline log event where the
+  flow terminated.
+
+* `pipeline.flow.duration.queue`
+
+  The `pipeline.flow.duration.queue` metric represents the time the flow spent
+  in the queue (that is, while it has the `QUEUED` [flow status](#pipeline-flow-status)).
+  While the update in the queue and before it terminates or reaches the
+  `PLANNING` or `STARTING` [status](#pipeline-flow-status), the duration
+  recorded in this metric is the "wall clock" time, calculated as the current
+  time when the metric is recorded by the integration minus the timestamp of the
+  pipeline log event where the flow reached the `QUEUED` [status](#pipeline-flow-status).
+  Once the flow terminates or reaches either the `PLANNING` [status](#pipeline-flow-status)
+  or the `STARTING` [status](#pipeline-flow-status), the duration recorded in
+  this metric is calculated by subtracting the timestamp of the pipeline log
+  event where the flow reached the `QUEUED` [status](#pipeline-flow-status) from
+  the timestamp of the log event where the flow terminated or reached either the
+  `PLANNING` [status](#pipeline-flow-status) or the `STARTING` [status](#pipeline-flow-status).
+
+* `pipeline.flow.duration.plan`
+
+  The `pipeline.flow.duration.plan` metric represents the time spent to plan the
+  flow (that is, while it has the `PLANNING` [flow status](#pipeline-flow-status)).
+  While the update has the `PLANNING` [status](#pipeline-flow-status) and before
+  it terminates or reaches the `STARTING` [status](#pipeline-flow-status), the
+  duration recorded in this metric is the "wall clock" time, calculated as the
+  current time when the metric is recorded by the integration minus the
+  timestamp of the pipeline log event where the flow terminated or reached the
+  `PLANNING` [status](#pipeline-flow-status). Once the terminates or reaches the
+  `STARTING` [status](#pipeline-flow-status), the duration recorded in this
+  metric is calculated by subtracting the timestamp of the pipeline log event
+  where the flow reached the `PLANNING` [status](#pipeline-flow-status) from the
+  timestamp of the log event where the flow terminated or reached the
+  `STARTING` [status](#pipeline-flow-status).
+
+**NOTE:** Wall clock durations are _cumulative_, meaning that until the update
+or flow reaches the status at which the true duration is calculated, the value
+of each successive metric increases monotonically. It is essentially a
+[`cumulativeCount` metric](https://docs.newrelic.com/docs/data-apis/understand-data/metric-data/cumulative-metrics/)
+but stored as a `gauge`. Within [NRQL](https://docs.newrelic.com/docs/nrql/get-started/introduction-nrql-new-relics-query-language/)
+statements, the [latest()](https://docs.newrelic.com/docs/nrql/nrql-syntax-clauses-functions/#latest)
+function can be used to get the most recent duration. For example, to show the
+most recent duration of flows that are running grouped by flow name, use the
+following NRQL (assuming the pipeline update [metricPrefix](#databricks-pipeline-update-metrics-metricprefix)
+is `databricks.`).
+
+```sql
+FROM Metric
+SELECT latest(databricks.pipeline.flow.duration)
+WHERE databricksPipelineFlowStatus = `RUNNING`
+FACET databricksPipelineFlowName
+```
+
+#### Example Pipeline Update Queries
+
+All examples below assume the pipeline update [metricPrefix](#databricks-pipeline-update-metrics-metricprefix)
+is `databricks.`.
+
+**Current update counts by state**
+
+```sql
+FROM Metric
+SELECT latest(databricks.pipeline.pipelines) AS 'Pipelines'
+FACET databricksPipelineState
+```
+
+**Current update counts by status**
+
+```sql
+FROM Metric
+SELECT latest(databricks.pipeline.updates) AS 'Updates'
+FACET databricksPipelineUpdateStatus
+```
+
+**Update durations by pipeline name and update ID over time**
+
+```sql
+FROM Metric
+SELECT latest(databricks.pipeline.update.duration)
+FACET databricksPipelineName, substring(databricksPipelineUpdateId, 0, 6)
+TIMESERIES
+```
+
+**Recent updates**
+
+```sql
+FROM Metric
+SELECT databricksPipelineName AS Pipeline, substring(databricksPipelineUpdateId, 0, 6) AS Update, databricksPipelineUpdateStatus as Status, getField(databricks.pipeline.update.duration, latest) / 1000 AS Duration
+WHERE databricks.pipeline.update.duration IS NOT NULL
+ AND databricksPipelineUpdateStatus IN ('COMPLETED', 'CANCELED', 'FAILED')
+LIMIT MAX
+```
+**Average update duration by pipeline name and update status**
+
+```sql
+FROM Metric
+SELECT average(databricks.pipeline.update.duration) / 1000 AS 'seconds'
+WHERE databricksPipelineUpdateStatus IN ('COMPLETED', 'CANCELED', 'FAILED')
+FACET databricksPipelineName, databricksPipelineUpdateStatus
+TIMESERIES
+```
+
+**NOTE:** Make sure to use the condition
+`databricksPipelineUpdateStatus IN ('COMPLETED', 'CANCELED', 'FAILED')` when
+visualizing or alerting on update duration using [aggregator functions](https://docs.newrelic.com/docs/nrql/nrql-syntax-clauses-functions/#aggregator-functions)
+other than [latest](https://docs.newrelic.com/docs/nrql/nrql-syntax-clauses-functions/#latest).
+
+**Recent flows**
+
+```sql
+FROM Metric
+SELECT databricksPipelineName AS Pipeline, substring(databricksPipelineUpdateId, 0, 6) AS Update, databricksPipelineFlowName AS Flow, databricksPipelineFlowStatus AS Status, getField(databricks.pipeline.flow.duration, latest) / 1000 AS Duration
+WHERE databricks.pipeline.flow.duration IS NOT NULL
+ AND databricksPipelineFlowStatus IN ('COMPLETED', 'STOPPED', 'SKIPPED', 'FAILED', 'EXCLUDED')
+LIMIT MAX
+```
+
+**Average flow backlog bytes**
+
+```sql
+FROM Metric
+SELECT average(databricks.pipeline.flow.backlogBytes)
+FACET databricksPipelineName, databricksPipelineFlowName
+```
+
+**Flow expectation records passed**
+
+```sql
+FROM Metric
+SELECT databricksPipelineName AS Pipeline, substring(databricksPipelineUpdateId, 0, 6) AS Update, databricksPipelineFlowName AS Flow, databricksPipelineFlowExpectationName AS Expectation, getField(databricks.pipeline.flow.expectation.recordsPassed, latest) AS Records
+WHERE databricks.pipeline.flow.expectation.recordsPassed IS NOT NULL
+LIMIT MAX
+```
+
+#### Example Pipeline Updates Dashboard
+
+A [sample dashboard](./examples/pipeline-updates-dashboard.json) is included
+that shows examples of the types of pipeline update information that can be
+displayed and the NRQL statements to use to visualize the data.
+
+![Sample pipeline updates dashboard image](./examples/pipeline-updates-dashboard.png)
+
 ### Pipeline Event Logs
 
 The New Relic Databricks integration can collect [Databricks Delta Live Tables Pipeline event logs](https://docs.databricks.com/en/delta-live-tables/observability.html#event-log)
@@ -2250,23 +2748,23 @@ they are properly ordered by timestamp in the [New Relic Logs UI](https://docs.n
 | `level` | `level`, `databricksPipelineEventLevel` | string | The severity level of the event, for example, `INFO`, `WARN`, `ERROR`, or `METRICS` |
 | `maturity_level` | `databricksPipelineEventMaturityLevel` | string | The stability of the event schema, one of `STABLE`, `NULL`, `EVOLVING`, or `DEPRECATED` |
 | n/a | `databricksPipelineEventError` | boolean | `true` if an error was captured by the event (see below for additional details), otherwise `false` |
-| `origin.batch_id` | `databricksPipelineEventBatchId` | integer | The id of a batch. Unique within a flow. |
-| `origin.cloud` | `databricksPipelineEventCloud` | string | The cloud provider, e.g., AWS or Azure |
-| `origin.cluster_id` | `databricksPipelineEventClusterId` | string | The id of the cluster where an execution happens. Unique within a region. |
-| `origin.dataset_name` | `databricksPipelineEventDatasetName` | string | The name of a dataset. Unique within a pipeline. |
-| `origin.flow_id` | `databricksPipelineEventFlowId` | string | The id of the flow. Globally unique. |
-| `origin.flow_name` | `databricksPipelineEventFlowName` | string | The name of the flow. Not unique. |
+| `origin.batch_id` | `databricksPipelineFlowBatchId` | integer | The id of a batch. Unique within a flow. |
+| `origin.cloud` | `databricksCloud` | string | The cloud provider, e.g., AWS or Azure |
+| `origin.cluster_id` | `databricksClusterId` | string | The id of the cluster where an execution happens. Unique within a region. |
+| `origin.dataset_name` | `databricksPipelineDatasetName` | string | The name of a dataset. Unique within a pipeline. |
+| `origin.flow_id` | `databricksPipelineFlowId` | string | The id of the flow. Globally unique. |
+| `origin.flow_name` | `databricksPipelineFlowName` | string | The name of the flow. Not unique. |
 | `origin.host` | `databricksPipelineEventHost` | string | The optional host name where the event was triggered |
-| `origin.maintenance_id` | `databricksPipelineEventMaintenanceId` | string | The id of a maintenance run. Globally unique. |
-| `origin.materialization_name` | `databricksPipelineEventMaterializationName` | string | Materialization name |
-| `origin.org_id` | `databricksPipelineEventOrgId` | integer | The org id of the user. Unique within a cloud. |
-| `origin.pipeline_id` | `databricksPipelineEventPipelineId` | string | The id of the pipeline. Globally unique. |
-| `origin.pipeline_name` | `databricksPipelineEventPipelineName` | string | The name of the pipeline. Not unique. |
-| `origin.region` | `databricksPipelineEventRegion` | string | The cloud region |
-| `origin.request_id` | `databricksPipelineEventRequestId` | string | The id of the request that caused an update |
-| `origin.table_id` | `databricksPipelineEventTableId` | string | The id of a (delta) table. Globally unique. |
-| `origin.uc_resource_id` | `databricksPipelineEventUcResourceId` | string | The Unity Catalog id of the MV or ST being updated |
-| `origin.update_id` | `databricksPipelineEventUpdateId` | string | The id of an execution. Globally unique. |
+| `origin.maintenance_id` | `databricksPipelineMaintenanceId` | string | The id of a maintenance run. Globally unique. |
+| `origin.materialization_name` | `databricksPipelineMaterializationName` | string | Materialization name |
+| `origin.org_id` | `databricksOrgId` | integer | The org id of the user. Unique within a cloud. |
+| `origin.pipeline_id` | `databricksPipelineId` | string | The id of the pipeline. Globally unique. |
+| `origin.pipeline_name` | `databricksPipelineName` | string | The name of the pipeline. Not unique. |
+| `origin.region` | `databricksCloudRegion` | string | The cloud region |
+| `origin.request_id` | `databricksPipelineRequestId` | string | The id of the request that caused an update |
+| `origin.table_id` | `databricksDeltaTableId` | string | The id of a (delta) table. Globally unique. |
+| `origin.uc_resource_id` | `databricksUcResourceId` | string | The Unity Catalog id of the MV or ST being updated |
+| `origin.update_id` | `databricksPipelineUpdateId` | string | The id of an execution. Globally unique. |
 
 Additionally, if the `error` field is set on the pipeline event log entry,
 indicating an error was captured by the event, the following attributes are

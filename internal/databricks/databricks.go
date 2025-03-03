@@ -202,6 +202,54 @@ func InitPipelines(
 		i.AddComponent(lp)
 	}
 
+	collectPipelineMetrics := true
+	if viper.IsSet("databricks.pipelines.metrics.enabled") {
+		collectPipelineMetrics = viper.GetBool(
+			"databricks.pipelines.metrics.enabled",
+		)
+	}
+
+	if collectPipelineMetrics {
+		startOffset := int64(24 * 60 * 60)
+		if viper.IsSet("databricks.pipelines.metrics.startOffset") {
+			startOffset = viper.GetInt64(
+				"databricks.pipelines.metrics.startOffset",
+			)
+		}
+
+		intervalOffset := int64(5)
+		if viper.IsSet("databricks.pipelines.metrics.intervalOffset") {
+			intervalOffset = viper.GetInt64(
+				"databricks.pipelines.metrics.intervalOffset",
+			)
+		}
+
+		databricksPipelineMetricsReceiver, err :=
+			NewDatabricksPipelineMetricsReceiver(
+				i,
+				w,
+				viper.GetString("databricks.pipelines.metrics.metricPrefix"),
+				time.Duration(startOffset) * time.Second,
+				time.Duration(intervalOffset) * time.Second,
+				viper.GetBool("databricks.pipelines.metrics.includeUpdateId"),
+				tags,
+			)
+		if err != nil {
+			return err
+		}
+
+		// Create a metrics pipeline for the pipeline metrics
+		mp := pipeline.NewMetricsPipeline(
+			"databricks-pipeline-metrics-pipeline",
+		)
+		mp.AddReceiver(databricksPipelineMetricsReceiver)
+		mp.AddExporter(newRelicExporter)
+
+		log.Debugf("initializing Databricks pipeline metrics pipeline")
+
+		i.AddComponent(mp)
+	}
+
 	return nil
 }
 
