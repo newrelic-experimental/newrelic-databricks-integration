@@ -48,6 +48,12 @@ databricks:
       includeRunId: false
       startOffset: 86400
   pipelines:
+    metrics:
+      enabled: $NEW_RELIC_DATABRICKS_PIPELINE_METRICS_ENABLED
+      metricPrefix: databricks.
+      includeUpdateId: false
+      startOffset: 86400
+      intervalOffset: 5
     logs:
       enabled: $NEW_RELIC_DATABRICKS_PIPELINE_EVENT_LOGS_ENABLED
 spark:
