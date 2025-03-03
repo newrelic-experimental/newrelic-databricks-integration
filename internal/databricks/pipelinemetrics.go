@@ -532,8 +532,35 @@ func (d *DatabricksPipelineMetricsReceiver) processPipelineEvents(
 	flows := map[string]*flowData{}
 	oldFlows := Set[string]{}
 
-	endTime := time.Now().UTC().Add(-d.intervalOffset)
+	// Due to very slight lags in the API, it is possible to receive an event
+	// that occurred at N - 1 at N + 1 where N is the time we poll for events.
+	// This means we won't see the event when we poll at N. This is not a
+	// problem except for termination events because we always check termination
+	// events against the last run of the integration so that we only count
+	// termination events once. If the event is a termination event, when we see
+	// it on the next polling cycle after N, we will think that we already saw
+	// the termination event and so we will ignore it. The result is we never
+	// process the termination event for the associated update or flow so we
+	// won't post count or duration events with the termination status for that
+	// update or flow. To account for the lag and reduce the risk of this type
+	// of situation, we can offset the last run time so that our termination
+	// checkpoint lags behind the actual last run time. The effectiveLastRun
+	// time is the actual last run time minus the lag (called the
+	// intervalOffset).
 	effectiveLastRun := lastRun.UTC().Add(-d.intervalOffset)
+
+	// Prior to discovering the lag, we were simply processing all events
+	// starting with the first event retrieved (so the most recent since they
+	// are returned in descending timestamp order). Because we now offset the
+	// termination checkpoint, it seemed prudent to also lag the processing of
+	// events by the same amount. In other words, we define a threshold for the
+	// maximum timestamp of events to process equal to the time at which we poll
+	// minus the same offset. It turned out that using now - offset to come up
+	// with the threshold time caused some duplication of metrics in some edge
+	// cases so instead we simply add the polling interval to the effective last
+	// run since effectiveLastRun + interval equals lastRun + interval - offset
+	// equals now - offset only without using the moving target that is now.
+	endTime := effectiveLastRun.Add(d.i.Interval * time.Second)
 
 	if log.IsDebugEnabled() {
 		log.Debugf(
